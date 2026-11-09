@@ -1,0 +1,11 @@
+# dependencies
+node_modules/
+
+# local scratch, not part of the plugin
+cheat/
+.debug.log
+*.log
+
+# editor / OS
+.DS_Store
+Thumbs.db

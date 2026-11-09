@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Refusal guard",
+    "description": "Holds model refusal replies before they enter the session context, and lets you release a held reply so the turn continues."
+  }
+}

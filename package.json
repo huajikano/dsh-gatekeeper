@@ -1,0 +1,51 @@
+{
+  "name": "dsh-refusal-guard",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "闸总 / Gatekeeper — holds model refusal replies before they enter the session context.",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "refusal",
+    "guard"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huajikano/dsh-gatekeeper.git"
+  },
+  "homepage": "https://github.com/huajikano/dsh-gatekeeper#readme",
+  "bugs": {
+    "url": "https://github.com/huajikano/dsh-gatekeeper/issues"
+  },
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  }
+}
