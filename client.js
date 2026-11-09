@@ -21,8 +21,8 @@ window.__ModuleLoader__.load({
 
     /** Fallback copy; the locale service overrides it when available. */
     const ZH = {
-      title: '拒绝拦截',
-      nav: '拒绝拦截',
+      title: '闸总',
+      nav: '闸总',
       lead: '在模型的拒绝性回复进入会话之前把它拦下来。',
       enabled: '启用拦截',
       enabledHint: '关闭后所有回复原样进入会话。',
@@ -96,8 +96,8 @@ window.__ModuleLoader__.load({
     }
 
     const EN = {
-      title: 'Refusal guard',
-      nav: 'Refusal guard',
+      title: 'Gatekeeper',
+      nav: 'Gatekeeper',
       lead: 'Stops a refusal reply before it enters the session context.',
       enabled: 'Guard replies',
       enabledHint: 'When off, every reply enters the session unchanged.',
