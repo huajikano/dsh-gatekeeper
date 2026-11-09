@@ -329,18 +329,30 @@ streamWithRegistration(options, prepared) {
 
 ## 关于 cc-switch
 
-参考了 [farion1231/cc-switch](https://github.com/farion1231/cc-switch) 的做法。它是 Rust 桌面端，自带一个 HTTP 代理，在 `src-tauri/src/proxy/` 下做请求/响应体改写。思路可以借鉴，但落点不同：
+[farion1231/cc-switch](https://github.com/farion1231/cc-switch) 是评估过的对照实现，不是代码来源。
+
+**借用的只有定位判断**：它证明了"在 HTTP 层拦模型回复"这件事是成立的，这给 `wire` 模式选层提供了依据。
+
+**没有借用任何实现**：检测规则、正则、流处理、头部处理全部是本项目自己写的。它 `src-tauri/src/proxy/` 下的模块与本插件没有对应关系：
+
+| cc-switch 的模块 | 它在做什么 | 与本插件的关系 |
+|---|---|---|
+| `classifier_guard.rs` | 连续三轮拿到"分类器不可用"的 tool_result 就停，靠数消息历史 | 无。那是**事后止损**，本插件是**事前拦截** |
+| `body_filter.rs` | 递归剥掉 `_` 前缀的私有字段 | 无。本插件不剥字段 |
+| `upstream_guard.rs` | 拒绝把请求转发回自己的监听端口（SSRF 防护） | 无。本插件没有监听端口可以配错 |
+| `media_sanitizer.rs` / `cache_injector.rs` | 媒体与缓存注入 | 无对应 |
+
+两者的部署模型正好相反：
 
 | | cc-switch | 本插件 |
 |---|---|---|
-| 位置 | 进程外的 HTTP 代理 | 进程内 `llm/stream` waterfall |
-| 改写对象 | 请求/响应 JSON body | `StreamChunk` 异步流 |
-| 拦截粒度 | 整个 body（要么全转要么全拦） | 逐 chunk，可保留 `usage` |
-| 部署 | 改 baseURL 指向代理 | 装插件，不动 provider 配置 |
+| 形态 | Rust 桌面程序，**进程外** HTTP 代理 | Node 插件，**进程内** |
+| 生效方式 | 改 provider 的 baseURL 指向代理 | 装进 Host，不动 provider 配置 |
+| 看到的数据 | 网络字节（需自行解析 SSE） | `wire` 模式是原始帧；`stream` 模式是结构化 chunk |
+| 能知道会话/`purpose` | 不能 | `stream` 模式能 |
+| 适用范围 | 任何走 HTTP 的 AI 客户端 | 仅 DeepSeek Harness |
 
-它的 `classifier_guard.rs` 是**事后止损**——连着三轮拿到分类器不可用的 tool_result 才停，靠数消息历史。本插件是**事前拦截**，在第一个 delta 就判。两者互补：cc-switch 管传输层，这个管会话层。
-
-它的 `body_filter.rs`（递归剥 `_` 前缀私有字段）和 `upstream_guard.rs`（防自我转发）在本场景用不上——没有 HTTP 层可以剥，也没有 baseURL 可以配错。
+结论：**要跨客户端通用，用 cc-switch；要按会话/用途精确控制，用本插件。** 两者可以并存。
 
 ## 已知边界
 
