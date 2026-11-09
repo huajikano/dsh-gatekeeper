@@ -85,16 +85,43 @@ wire 模式的可调项：
 
 ### 实测
 
-wire 模式下，拒绝文本在上游发出后即被判定、上游被断开、下游只收到终止帧：
+wire 模式下，拒绝文本在上游发出后即被判定、上游被断开、下游只收到终止帧。真实 Harness 里跑过（不是模拟）：
 
 ```
-upstream reached: 1
-verdicts: [{ phase: 'response', blocked: true, reason: 'quoted:opener+denial', chars: 61, ... }]
-body still contains the refusal: false
-body terminates properly: true
+settle raw=1215 reply=8 BLOCK blocklist
+ASSISTANT: [{"type":"text","text":"[已拦截]"}]
+TURN END: {"kind":"completed"}
 ```
 
-注意判定理由是 `quoted:...`——wire 层看到的是 `data: {"choices":[...]}` 这种帧，拒绝语在 JSON 字符串里，所以要叠加引号判定才能抓到时。
+原文没进会话，替换文本进了，这一轮**正常完成**（无重试、无报错）。
+
+### wire 模式的三个坑（都踩过了）
+
+在真实 Harness 上验证时踩出来的，模拟测试发现不了：
+
+1. **判定必须针对解析后的文本，不是原始字节。**
+   SSE 帧的 JSON 包装大约是正文的十倍，用原始字节比窗口，短回复会被判成"超出窗口"。
+
+2. **`detect()` 内部按 `scanChars` 截断。**
+   即使 wire 缓冲了整条回复，判定仍只看前 240 字。token 在 2200 字处就漏了。wire 判定必须显式放大窗口。
+
+3. **终止帧必须带内容。**
+   - 只有 `data: [DONE]` → `Stream ended without finish_reason`（TRANSPORT 错误）
+   - 加了 `finish_reason: stop` 但内容为空 → `EMPTY_RESPONSE`，pi-ai 会重试五次再失败
+   - 带内容 + `finish_reason: stop` + `[DONE]` → 干净结束
+
+   所以 **wire 模式下 `replacementText` 为空无法干净收尾**，这一轮会以 `EMPTY_RESPONSE` 结束。`stream` 模式没有这个限制。
+
+### wire vs stream 怎么选
+
+| | `stream` | `wire` |
+|---|---|---|
+| 收尾 | 干净，空替换也行 | 需要非空替换文本 |
+| 流式体验 | 缓冲到 `scanChars` | 缓冲到 `wireReleaseChars`（默认 4000，延迟明显更大） |
+| 能看到出站请求 | ✗ | ✓ |
+| 稳定性 | 高 | 低（改了进程级 fetch） |
+
+**日常用 `stream`。** `wire` 留给"必须看请求体"或"怀疑有调用绕过了 `llm/stream`"的场景。
 
 ## 拦截之后怎么办
 

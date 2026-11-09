@@ -168,6 +168,63 @@ test('auxiliary requests are left alone even when they quote a refusal', async (
   })
 })
 
+test('a short reply survives a stream whose raw bytes far exceed the window', async () => {
+  // Regression: judging raw bytes compared the window against JSON framing
+  // instead of the reply. A stream can be many times longer than its text, so a
+  // nine-character reply looked like it had scrolled past the window.
+  const config = resolveConfig({ interceptAt: 'wire', scanChars: 240, blocklist: ['ZZWIREZZ'] })
+  const padding = 'x'.repeat(400)
+  const frames = [
+    `data: ${JSON.stringify({ choices: [{ delta: { content: 'ZZWIREZZ' } }], pad: padding })}\n\n`,
+    `data: ${JSON.stringify({ choices: [{ delta: { content: '' } }], pad: padding })}\n\n`,
+    'data: [DONE]\n\n',
+  ].join('')
+  assert.ok(frames.length > 800, 'the raw stream must dwarf the window')
+
+  await withGuard(config, () => sseResponse([frames]), async (verdicts) => {
+    const response = await globalThis.fetch('https://api.example.com/v1/chat/completions', { method: 'POST' })
+    const body = await bodyOf(response)
+    assert.ok(!body.includes('ZZWIREZZ'), 'the token must not survive')
+    assert.equal(verdicts[0].blocked, true)
+    assert.equal(verdicts[0].reason, 'blocklist')
+    assert.ok(verdicts[0].chars < 50, 'the judged text is the reply, not the framing')
+  })
+})
+
+test('the default terminator carries content and a finish_reason', async () => {
+  // Two regressions at once: "data: [DONE]" alone raised "Stream ended without
+  // finish_reason"; a finish chunk with no content raised EMPTY_RESPONSE, which
+  // pi-ai retries five times before failing the turn.
+  const config = resolveConfig({
+    interceptAt: 'wire',
+    scanChars: 20,
+    blocklist: ['ZZWIREZZ'],
+    replacementText: '已拦截',
+  })
+  await withGuard(config, () => sseResponse([sseBody(['ZZWIREZZ'])]), async () => {
+    const response = await globalThis.fetch('https://api.example.com/v1/chat/completions', { method: 'POST' })
+    const body = await bodyOf(response)
+    assert.ok(body.includes('"finish_reason":"stop"'), 'a finish_reason frame must be emitted')
+    assert.ok(body.includes('[DONE]'), 'the stream must still end with [DONE]')
+    assert.ok(body.includes('已拦截'), 'the terminator must carry the replacement text')
+  })
+})
+
+test('a match late in a long reply is still found at the wire', async () => {
+  // Regression: `detect` truncates to `scanChars`, so a token past that point
+  // was invisible even though the wire guard had buffered the whole reply.
+  const config = resolveConfig({ interceptAt: 'wire', scanChars: 240, blocklist: ['ZZWIREZZ'] })
+  const long = '一段很长的解释文字。'.repeat(300)
+  const frames = sseBody([long, 'ZZWIREZZ'])
+  assert.ok(long.length > 2000)
+  await withGuard(config, () => sseResponse([frames]), async (verdicts) => {
+    const response = await globalThis.fetch('https://api.example.com/v1/chat/completions', { method: 'POST' })
+    const body = await bodyOf(response)
+    assert.ok(!body.includes('ZZWIREZZ'), 'the token must not survive a long reply')
+    assert.equal(verdicts[0].blocked, true)
+  })
+})
+
 test('the wrapped response drops stale length and encoding headers', async () => {
   const config = resolveConfig({ interceptAt: 'wire', scanChars: 20 })
   await withGuard(config, () => new Response(sseBody([NORMAL]), {
