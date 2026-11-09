@@ -32,6 +32,67 @@
 Agent loop 从这条流里折叠出 assistant message 并提交。插件包住 `next()`，边收边判，命中就丢弃内容 chunk。
 
 
+## 两种拦截位置
+
+`interceptAt` 决定守卫站在哪里。两者可分别启用，也能同时开。
+
+```
+provider ──▶ [TLS 之前 / globalThis.fetch] ──▶ 适配器 ──▶ [llm/stream] ──▶ agent loop ──▶ 会话日志
+                     wire                                        stream
+```
+
+| | `stream`（默认） | `wire` |
+|---|---|---|
+| 挂载点 | `llm/stream` waterfall | `globalThis.fetch` |
+| 看到的内容 | 结构化的 `StreamChunk` | 加密前的原始字节（SSE 帧 + JSON） |
+| 能看到出站请求体 | ✗ | ✓ |
+| 知道会话 / purpose | ✓ | ✗ |
+| 命中后的收尾 | 干净的替换文本 | 补协议终止帧（默认 `data: [DONE]`） |
+| 协议依赖 | 无 | 终止帧需与协议匹配 |
+| 稳定性 | 高 | 较低（改了进程级 fetch） |
+
+### 关于「TLS 层」
+
+插件跑在 Host 进程里，**没有**密钥，无法解密别人的 TLS 流量。但它也不需要——Host 就是客户端，明文在加密前一步就存在。钩住 `globalThis.fetch` 就站在了整条链最上游：比 SSE 解析早，比适配器早，比 `llm/stream` 早。
+
+这也是**唯一**能看到出站请求体的位置，所以请求侧拦截只能在这里做。
+
+为什么钩 `globalThis.fetch` 能生效：OpenAI SDK 在构造客户端时绑定 `fetch`（`options.fetch ?? getDefaultFetch()`），而 pi-ai 适配器**每次流式调用都新建客户端**，所以下一次调用会取到被替换后的全局函数。
+
+### 开启 wire 模式
+
+```yaml
+- id: refusal-guard
+  config:
+    interceptAt: wire        # stream | wire | both
+```
+
+wire 模式的可调项：
+
+| 字段 | 默认 | 说明 |
+|---|---|---|
+| `wireUrlPatterns` | `/chat/completions` 等 | URL 含任一片段才处理；留空 = 关闭 |
+| `wireScanResponses` | `true` | 边收边判响应流 |
+| `wireScanRequests` | `false` | 扫描出站请求体（提示词） |
+| `wireBlockRequests` | `false` | 命中就拒发；`false` 只记录 |
+| `wireAbortUpstream` | `true` | 命中后断开上游，省掉剩余 token |
+| `wireTerminator` | `data: [DONE]\n\n` | 中止后补的帧；留空则直接关闭 |
+
+`both` 会同时开两层：wire 先拦，stream 作为兜底。
+
+### 实测
+
+wire 模式下，拒绝文本在上游发出后即被判定、上游被断开、下游只收到终止帧：
+
+```
+upstream reached: 1
+verdicts: [{ phase: 'response', blocked: true, reason: 'quoted:opener+denial', chars: 61, ... }]
+body still contains the refusal: false
+body terminates properly: true
+```
+
+注意判定理由是 `quoted:...`——wire 层看到的是 `data: {"choices":[...]}` 这种帧，拒绝语在 JSON 字符串里，所以要叠加引号判定才能抓到时。
+
 ## 拦截之后怎么办
 
 拦截有两种处理方式，由 `onDetect` 决定：
