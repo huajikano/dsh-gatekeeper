@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-refusal-guard',
+  id: 'dsh-gatekeeper',
   factory(require) {
     const React = require('react')
     const h = React.createElement
@@ -14,10 +14,10 @@ window.__ModuleLoader__.load({
       createPortal = null
     }
 
-    const NS = 'refusal-guard'
-    const STATE_PATH = '/api/dsh-refusal-guard/state'
-    const DECIDE_PATH = '/api/dsh-refusal-guard/decide'
-    const CONFIG_PATH = '/api/dsh-refusal-guard/config'
+    const NS = 'gatekeeper'
+    const STATE_PATH = '/api/dsh-gatekeeper/state'
+    const DECIDE_PATH = '/api/dsh-gatekeeper/decide'
+    const CONFIG_PATH = '/api/dsh-gatekeeper/config'
 
     /** Fallback copy; the locale service overrides it when available. */
     const ZH = {
@@ -878,7 +878,7 @@ window.__ModuleLoader__.load({
         try {
           const locale = ctx.get('locale')
           if (locale) {
-            ctx.effect(() => locale.register(NS, { zh: ZH, en: EN }), 'refusal-guard: dictionaries')
+            ctx.effect(() => locale.register(NS, { zh: ZH, en: EN }), 'gatekeeper: dictionaries')
             t = locale.bind(NS)
           }
         } catch {
@@ -887,7 +887,7 @@ window.__ModuleLoader__.load({
 
         ctx.slots.inject('settings.section', () => ctx.slots.register({
           name: 'settings.section',
-          id: 'refusal-guard',
+          id: 'gatekeeper',
           order: 36,
           label: () => t('nav'),
           inject: () => ({ t }),
@@ -895,7 +895,7 @@ window.__ModuleLoader__.load({
 
         ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
           name: 'conversation.input.dock',
-          id: 'refusal-guard-pending',
+          id: 'gatekeeper-pending',
           order: 50,
           inject: () => ({ t }),
         }, PendingBanner))

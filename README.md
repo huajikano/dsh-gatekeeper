@@ -4,7 +4,7 @@
 >
 > 一个 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件：在流式 chunk 落进会话日志**之前**判定并拦截拒绝性回复，避免它污染后续每一轮上下文。
 
-包名：`dsh-refusal-guard`　插件行 id：`refusal-guard`
+包名：`dsh-gatekeeper`　插件行 id：`gatekeeper`
 
 ## 它解决什么
 
@@ -16,7 +16,7 @@
 
 ```bash
 # 在本机 clone 后，用 DSH 的插件管理器安装这个目录
-# 包类型是 bundle，patch 会插入 id 为 refusal-guard 的一行
+# 包类型是 bundle，patch 会插入 id 为 gatekeeper 的一行
 ```
 
 装好后在 **设置 → 拒绝拦截** 里能看到开关与记录面板。
@@ -62,7 +62,7 @@ provider ──▶ [TLS 之前 / globalThis.fetch] ──▶ 适配器 ──▶
 ### 开启 wire 模式
 
 ```yaml
-- id: refusal-guard
+- id: gatekeeper
   config:
     interceptAt: wire        # stream | wire | both
 ```
@@ -151,16 +151,16 @@ TURN END: {"kind":"completed"}
 
 | 路由 | 方法 | 作用 |
 |---|---|---|
-| `/api/dsh-refusal-guard/state` | GET | 配置 + 待审列表 + 计数 |
-| `/api/dsh-refusal-guard/decide` | POST | `{ id, action: 'release' \| 'block' }` |
-| `/api/dsh-refusal-guard/config` | POST | 部分配置，校验后写入 profile |
+| `/api/dsh-gatekeeper/state` | GET | 配置 + 待审列表 + 计数 |
+| `/api/dsh-gatekeeper/decide` | POST | `{ id, action: 'release' \| 'block' }` |
+| `/api/dsh-gatekeeper/config` | POST | 部分配置，校验后写入 profile |
 
 ## 自定义词库
 
 内置规则抓不到的说法，用 `blocklist` 补。它是**纯文本匹配**，不是正则，写进去就能用：
 
 ```yaml
-- id: refusal-guard
+- id: gatekeeper
   config:
     blocklist:
       - 帮不了
@@ -209,7 +209,7 @@ TURN END: {"kind":"completed"}
 **日常使用**（只拦真正说出口的拒绝）：
 
 ```yaml
-- id: refusal-guard
+- id: gatekeeper
   config:
     onDetect: block
     scanReasoning: false
@@ -219,7 +219,7 @@ TURN END: {"kind":"completed"}
 **要连思考一起管**（误伤明显升高，配合 `dryRun` 先看）：
 
 ```yaml
-- id: refusal-guard
+- id: gatekeeper
   config:
     onDetect: block
     scanReasoning: true
@@ -243,7 +243,7 @@ TURN END: {"kind":"completed"}
 
 ## 排查「保存不了」
 
-设置页保存走 `POST /api/dsh-refusal-guard/config`，失败时页面会直接显示服务端返回的原文。
+设置页保存走 `POST /api/dsh-gatekeeper/config`，失败时页面会直接显示服务端返回的原文。
 
 - **`unknown config key "..."`** —— 提交体里混进了非配置字段。已修：服务端现在会丢弃未知键，只把认识的设置写进 profile。
 - **`this profile cannot persist configuration`** —— 当前 profile 没有 config editor，或插件行不是由 patch 挂载的；这种情况直接改 `cordis.patch.yml`。
@@ -287,11 +287,11 @@ pass                          | 引用一句普通文本「请把偏移量填好
 在 profile 的 `cordis.patch.yml` 里按 id 覆盖：
 
 ```yaml
-- id: refusal-guard
+- id: gatekeeper
   config:
     scanChars: 600
     dryRun: false
-    replacementText: '[refusal-guard] 已拦截一段拒绝性回复，原文未进入会话。'
+    replacementText: '[gatekeeper] 已拦截一段拒绝性回复，原文未进入会话。'
 ```
 
 | 字段 | 默认 | 说明 |

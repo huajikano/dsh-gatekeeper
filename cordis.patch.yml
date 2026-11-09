@@ -1,13 +1,13 @@
-# The dsh-refusal-guard bundle patch: one Loader row for this package.
+# The dsh-gatekeeper bundle patch: one Loader row for this package.
 #
 # The row carries no `config`: every field has a default, and a deployment that
 # wants different tuning overrides this row by id in its own profile patch:
 #
-#   - id: refusal-guard
+#   - id: gatekeeper
 #     config:
 #       scanChars: 800
 #       dryRun: true
 
 - insert:
-    - id: refusal-guard
-      name: 'dsh-refusal-guard'
+    - id: gatekeeper
+      name: 'dsh-gatekeeper'

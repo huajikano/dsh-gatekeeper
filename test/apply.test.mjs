@@ -105,7 +105,7 @@ test('registers one llm/stream waterfall listener', () => {
   const { ctx, listener } = fakeContext(log)
   apply(ctx, {})
   assert.equal(typeof listener(), 'function')
-  assert.ok(log.some((entry) => entry.message.includes('refusal-guard: active')))
+  assert.ok(log.some((entry) => entry.message.includes('gatekeeper: active')))
 })
 
 test('disabled config registers nothing', () => {
@@ -259,7 +259,7 @@ test('the config route saves a patch and ignores unknown keys', async () => {
     },
   }
   const { ctx } = fakeContext(log, { connection, configEditor: editor })
-  Object.assign(ctx, { fiber: { entry: { id: 'refusal-guard' } } })
+  Object.assign(ctx, { fiber: { entry: { id: 'gatekeeper' } } })
   apply(ctx, {})
 
   const response = await routes.get(CONFIG_PATH).fetch(new Request('http://host/config', {
@@ -277,7 +277,7 @@ test('the config route refuses a body with no known keys', async () => {
   const log = []
   const { routes, connection } = fakeConnection()
   const { ctx } = fakeContext(log, { connection, configEditor: { async edit() {} } })
-  Object.assign(ctx, { fiber: { entry: { id: 'refusal-guard' } } })
+  Object.assign(ctx, { fiber: { entry: { id: 'gatekeeper' } } })
   apply(ctx, {})
 
   const response = await routes.get(CONFIG_PATH).fetch(new Request('http://host/config', {
@@ -330,7 +330,7 @@ test('INTERNAL_PURPOSES names the three DSH auxiliary callers', () => {
 })
 
 test('module exports the loader contract', () => {
-  assert.equal(name, 'refusal-guard')
+  assert.equal(name, 'gatekeeper')
   assert.deepEqual(inject, [])
   assert.equal(typeof resolveConfig({}).scanChars, 'number')
 })
