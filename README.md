@@ -77,6 +77,9 @@ wire 模式的可调项：
 | `wireBlockRequests` | `false` | 命中就拒发；`false` 只记录 |
 | `wireAbortUpstream` | `true` | 命中后断开上游，省掉剩余 token |
 | `wireTerminator` | `data: [DONE]\n\n` | 中止后补的帧；留空则直接关闭 |
+| `wireSkipBodyPatterns` | 三条系统提示词片段 | 请求体含任一片段即视为 DSH 内部调用，完整放过 |
+
+**为什么要 `wireSkipBodyPatterns`**：wire 层没有 `purpose` 字段，分不清主对话和 DSH 自己的辅助调用。压缩摘要、会话标题、auto-review 评审都会经过这里，改坏它们是之前已经修过的回归。所以用请求体里的系统提示词片段来识别——命中就原样放行。
 
 `both` 会同时开两层：wire 先拦，stream 作为兜底。
 

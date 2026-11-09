@@ -150,6 +150,24 @@ test('wire mode is not installed when interceptAt is stream', async () => {
   assert.equal(config.interceptAt, 'stream')
 })
 
+test('auxiliary requests are left alone even when they quote a refusal', async () => {
+  const config = resolveConfig({ interceptAt: 'wire', scanChars: 20 })
+  const body = JSON.stringify({
+    messages: [
+      { role: 'system', content: 'REVIEW_POLICY\nYou are the final authorization reviewer.' },
+      { role: 'user', content: REFUSAL },
+    ],
+  })
+  await withGuard(config, () => sseResponse([sseBody([REFUSAL])]), async (verdicts) => {
+    const response = await globalThis.fetch('https://api.example.com/v1/chat/completions', { method: 'POST', body })
+    const text = await bodyOf(response)
+    // A compaction summary, session title or review must survive untouched:
+    // substituting them was the regression the stream guard already fixed.
+    assert.ok(text.includes('抱歉'))
+    assert.equal(verdicts.length, 0)
+  })
+})
+
 test('the wrapped response drops stale length and encoding headers', async () => {
   const config = resolveConfig({ interceptAt: 'wire', scanChars: 20 })
   await withGuard(config, () => new Response(sseBody([NORMAL]), {
