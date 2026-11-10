@@ -5,6 +5,7 @@ node_modules/
 cheat/
 .debug.log
 *.log
+.local-verification/
 
 # editor / OS
 .DS_Store

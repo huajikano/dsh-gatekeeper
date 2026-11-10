@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { detect, detectQuoted, normalize, compilePatterns } from '../lib/refusal.js'
+import { detect, detectQuoted, hasSignal, normalize, compilePatterns } from '../lib/refusal.js'
 import { guardStream } from '../lib/stream.js'
 import { resolveConfig } from '../lib/index.js'
 
@@ -235,6 +235,51 @@ test('blockToolCalls suppresses even tool-calling replies', async () => {
   ]
   const out = await collect(guardStream(streamOf(chunks), config, { report: () => {} }))
   assert.ok(!out.some((c) => c.type === 'tool-call-delta'))
+})
+
+test('hasSignal separates refusal vocabulary from ordinary text', () => {
+  const config = resolveConfig({})
+  // Ordinary technical prose carries no refusal signal, so the fast path can
+  // release it after a few dozen characters.
+  assert.equal(hasSignal('补丁点位于 0x401050，改两个字节即可。', config), false)
+  assert.equal(hasSignal('这个函数不能返回空指针，否则会崩溃。', config), false)
+  assert.equal(hasSignal('The linker cannot resolve pthread.', config), false)
+  // Anything that could still become a refusal keeps buffering.
+  assert.equal(hasSignal('抱歉，我需要更多信息。', config), true)
+  assert.equal(hasSignal('我无法协助这个请求。', config), true)
+  assert.equal(hasSignal('我不会接着填那些偏移量。', config), true)
+  assert.equal(hasSignal('against my guidelines', config), true)
+  // A plain "I cannot pin down the address" is ordinary, not a refusal.
+  assert.equal(hasSignal('我无法确定这个地址。', config), false)
+})
+
+test('a word-list hit also counts as a signal', () => {
+  const config = resolveConfig({ blocklist: ['ZZWIREZZ'] })
+  assert.equal(hasSignal('前面都是正常内容 ZZWIREZZ 后面也是', config), true)
+  assert.equal(hasSignal('前面都是正常内容', config), false)
+})
+
+test('a refusal that opens the reply is caught with the fast path on', async () => {
+  const config = resolveConfig({ onDetect: 'block', replacementText: 'X', fastPath: true })
+  const out = await collect(guardStream(streamOf(deltas('抱歉，我不能协助完成这个请求。')), config, { report: () => {} }))
+  assert.equal(textOf(out), 'X')
+})
+
+test('an ordinary reply streams out after the fast probe, not the full window', async () => {
+  const config = resolveConfig({ fastPath: true, scanChars: 600, fastProbeChars: 64 })
+  const original = deltas('这个函数在入口加个判空就行，其余地方不用动。'.repeat(6), 4)
+  const seen = []
+  const out = await collect(guardStream(streamOf(original), config, { report: (r) => seen.push(r) }))
+
+  assert.deepEqual(out, original)
+  assert.equal(seen.length, 0, 'an innocent reply is never reported')
+})
+
+test('with the fast path off, the same reply waits for the full window', async () => {
+  const config = resolveConfig({ fastPath: false, scanChars: 600 })
+  const original = deltas('这个函数在入口加个判空就行，其余地方不用动。'.repeat(6), 4)
+  const out = await collect(guardStream(streamOf(original), config, { report: () => {} }))
+  assert.deepEqual(out, original)
 })
 
 test('short replies below minChars are never blocked', async () => {

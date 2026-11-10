@@ -18,9 +18,58 @@ window.__ModuleLoader__.load({
     const STATE_PATH = '/api/dsh-gatekeeper/state'
     const DECIDE_PATH = '/api/dsh-gatekeeper/decide'
     const CONFIG_PATH = '/api/dsh-gatekeeper/config'
+    const PREVIEW_PATH = '/api/dsh-gatekeeper/preview'
 
     /** Fallback copy; the locale service overrides it when available. */
     const ZH = {
+      minCharsLabel: '最短检测长度',
+      wireReleaseLabel: '网络模式放行长度',
+      tabSettings: "设置",
+      tabReview: "待审核",
+      tabHistory: "最近记录",
+      basicTitle: "拦截方式",
+      basicHint: "选择内容在何处检查，以及命中后的处理方式。",
+      scopeTitle: "检测范围",
+      scopeHint: "扩大检测范围可能增加误拦。工具参数中也可能包含测试样本。",
+      advancedTitle: "高级参数",
+      advancedHint: "检测窗口、等待时间与网络选项",
+      wordsTitle: "自定义词库",
+      wordsHint: "一行一条，按纯文本匹配。修改后点击保存。",
+      dirty: "有未保存的修改",
+      clean: "配置已同步",
+      undo: "撤销修改",
+      statusEnabled: "已启用",
+      statusDisabled: "已停用",
+      statusDry: "演练中",
+      checkedLabel: "已检查",
+      pendingLabel: "当前待审",
+      blockedLabel: "拦截记录",
+      historyHint: "仅保留本次运行的最近记录；重新加载插件后会清空。",
+      reviewEmptyHint: "选择“先问我”后，命中的回复会在这里等待处理。",
+      historyEmptyHint: "命中事件出现后，可在这里查看处理结果。",
+      fieldInvalid: "请填写有效的整数，且不小于字段标注的最小值。",
+      modeStream: "结构化流",
+      modeWire: "网络响应",
+      modeBoth: "双层拦截",
+      modePreview: "实时预览",
+      modeStreamHint: "在内容进入 DSH 前检查开头，保留原有模式。",
+      modeWireHint: "检查适配器之前的 HTTP 响应；协议兼容性与延迟需单独评估。",
+      modeBothHint: "同时启用网络和结构化流拦截。",
+      modePreviewHint: "即时显示临时预览；完整输出检查通过后正式提交。",
+      scanTools: "检查工具参数",
+      scanToolsHint: "写文件、发送消息的参数也参与检查，可能命中引用样本。",
+      fastLabel: "快速放行",
+      fastHint: "无信号时提前放行；后文出现的拒绝可能漏掉。",
+      fastProbe: "快速检查长度",
+      disabledPreviewFields: "实时预览会检查完整输出，不使用开头窗口或快速放行。",
+      reviewReason: "命中原因",
+      reviewContent: "待审核原文",
+      historyContent: "查看记录摘要",
+      noContent: "此记录未保留原文。",
+      releaseHint: "允许原始内容进入会话",
+      discardHint: "丢弃本次回复",
+      wireSafeHint: "此模式是 HTTP/fetch 层处理，不是系统级 TLS 解密。",
+      restartHint: "保存会重载插件。请先处理正在审核的回复。",
       title: '闸总',
       nav: '闸总',
       lead: '在模型的拒绝性回复进入会话之前把它拦下来。',
@@ -30,6 +79,18 @@ window.__ModuleLoader__.load({
       interceptAtStream: 'llm/stream（解析后的回复，默认）',
       interceptAtWire: 'TLS 之前（HTTP 出站，最上游）',
       interceptAtBoth: '两层都开',
+      interceptAtPreview: '实时预览，审核后提交',
+      previewHint: '预览是临时界面，不是持久聊天，可能短暂显示拒绝内容。插件不额外请求模型；完整检查通过或你放行后才提交，工具执行仍等待提交。',
+      previewBlocked: '已丢弃 · 原文未提交',
+      previewFailed: '生成失败 · 原文未提交',
+      previewReceiving: '临时预览 · 尚未提交',
+      previewReview: '等待你审核 · 尚未提交',
+      previewChecking: '检查中 · 尚未提交',
+      previewCommitting: '正在提交',
+      previewTruncated: '预览仅显示末尾内容；检查与回放仍保留完整内容。',
+      previewThinking: '思考预览（临时）',
+      previewTools: '待提交工具：',
+      previewDisconnected: '预览连接中断，正在重连；不会自动放行。',
       interceptAtHint: 'TLS 之前：钩住 globalThis.fetch，在加密前看到请求与响应，能看到出站请求体，但拿不到会话信息，且被拦的流要用协议终止帧收尾。llm/stream：结构化 chunk、知道会话，替换干净。',
       wireSection: 'TLS 层选项',
       wireScanResponses: '检查响应流',
@@ -42,10 +103,10 @@ window.__ModuleLoader__.load({
       wireUrlPatterns: 'LLM 端点匹配',
       wireUrlPatternsHint: '每行一个片段，URL 含任一片段才处理。留空等于关闭 TLS 层。',
       wireTerminator: '终止帧',
-      wireTerminatorHint: '中止响应后补的帧；OpenAI 兼容流用 data: [DONE]。留空则直接关闭。',
+      wireTerminatorHint: '自定义协议终止帧。留空使用内置收尾；仅 [DONE] 可能导致适配器报错。',
       onDetect: '命中后',
       onDetectAsk: '先问我（暂存回复，等我放行或丢弃）',
-      onDetectBlock: '直接丢弃（换成一句标记）',
+      onDetectBlock: '自动丢弃',
       onDetectHint: '选“先问我”时，回复会暂停在待审区，等你决定后原样放行或丢弃。',
       dryRun: '演练模式',
       dryRunHint: '只记录不拦截，用来先观察判定是否准确。',
@@ -64,7 +125,7 @@ window.__ModuleLoader__.load({
       askTimeoutMs: '等待超时（毫秒）',
       askTimeoutHint: '超时无人处理就按丢弃处理。',
       replacement: '替换文本',
-      replacementHint: '丢弃后写进会话的那一句。',
+      replacementHint: '留空时不写标记。网络模式空替换可能触发提供方的空响应检查。',
       blockToolCalls: '连带工具调用一起拦',
       blockToolCallsHint: '默认放行带工具调用的回复——它在干活，不是在拒绝。',
       save: '保存',
@@ -96,6 +157,54 @@ window.__ModuleLoader__.load({
     }
 
     const EN = {
+      minCharsLabel: 'Minimum scan length',
+      wireReleaseLabel: 'Network release length',
+      tabSettings: "Settings",
+      tabReview: "Review",
+      tabHistory: "Recent records",
+      basicTitle: "Interception",
+      basicHint: "Choose where to inspect content and what happens on a match.",
+      scopeTitle: "Detection scope",
+      scopeHint: "Wider inspection may match quoted examples in reasoning or tool arguments.",
+      advancedTitle: "Advanced settings",
+      advancedHint: "Scan windows, decision timeout and network options",
+      wordsTitle: "Custom blocklist",
+      wordsHint: "One plain-text phrase per line. Save to apply your changes.",
+      dirty: "Unsaved changes",
+      clean: "Configuration synced",
+      undo: "Revert changes",
+      statusEnabled: "Enabled",
+      statusDisabled: "Disabled",
+      statusDry: "Dry run",
+      checkedLabel: "Inspected",
+      pendingLabel: "Awaiting review",
+      blockedLabel: "Match records",
+      historyHint: "Recent records are kept for this activation and reset when the plugin reloads.",
+      reviewEmptyHint: "Select “Ask me first” to hold matching replies here for review.",
+      historyEmptyHint: "When a match occurs, its outcome appears here.",
+      fieldInvalid: "Enter a whole number at or above the stated minimum.",
+      modeStream: "Structured stream",
+      modeWire: "Network response",
+      modeBoth: "Both layers",
+      modePreview: "Live preview",
+      modeStreamHint: "Inspect the opening before it reaches DSH. Keeps the existing behavior.",
+      modeWireHint: "Inspect HTTP before the adapter; protocol support and latency vary.",
+      modeBothHint: "Enable both network and structured stream interception.",
+      modePreviewHint: "Show a transient preview immediately, then submit after the full check.",
+      scanTools: "Inspect tool arguments",
+      scanToolsHint: "File writes and messages may contain quoted test examples.",
+      fastLabel: "Early release",
+      fastHint: "Release early when no signal is seen; a later refusal can be missed.",
+      fastProbe: "Early scan length",
+      disabledPreviewFields: "Live preview checks the complete output; opening windows and early release do not apply.",
+      reviewReason: "Match reason",
+      reviewContent: "Original content for review",
+      historyContent: "View record summary",
+      noContent: "Original content was not retained for this record.",
+      releaseHint: "Admit the original content to the conversation",
+      discardHint: "Discard this reply",
+      wireSafeHint: "This is HTTP/fetch processing, not system-wide TLS decryption.",
+      restartHint: "Saving reloads the plugin. Settle pending reviews first.",
       title: 'Gatekeeper',
       nav: 'Gatekeeper',
       lead: 'Stops a refusal reply before it enters the session context.',
@@ -105,6 +214,18 @@ window.__ModuleLoader__.load({
       interceptAtStream: 'llm/stream — parsed reply (default)',
       interceptAtWire: 'Before TLS — outbound HTTP (earliest)',
       interceptAtBoth: 'Both layers',
+      interceptAtPreview: 'Live preview, commit after review',
+      previewHint: 'Preview is transient UI, not durable chat, and can briefly show refusal content. No extra model request is made. Content is submitted only after the full check or your release; tools still wait for submission.',
+      previewBlocked: 'Discarded · original not submitted',
+      previewFailed: 'Generation failed · original not submitted',
+      previewReceiving: 'Live preview · not submitted',
+      previewReview: 'Awaiting review · not submitted',
+      previewChecking: 'Checking · not submitted',
+      previewCommitting: 'Submitting',
+      previewTruncated: 'Only the preview tail is shown; full content is retained for checking and replay.',
+      previewThinking: 'Transient reasoning preview',
+      previewTools: 'Pending tools: ',
+      previewDisconnected: 'Preview disconnected; reconnecting without approving anything.',
       interceptAtHint: 'Before TLS hooks globalThis.fetch, seeing the request and response before encryption. It can inspect the outgoing body, but knows nothing about sessions and must close a blocked stream with a protocol terminator. llm/stream sees structured chunks with the session attached and replaces cleanly.',
       wireSection: 'TLS-layer options',
       wireScanResponses: 'Inspect the response stream',
@@ -117,10 +238,10 @@ window.__ModuleLoader__.load({
       wireUrlPatterns: 'LLM endpoint matching',
       wireUrlPatternsHint: 'One fragment per line; a URL is inspected only when it contains one. Empty disables the TLS layer.',
       wireTerminator: 'Terminator frame',
-      wireTerminatorHint: 'Appended after a cancelled response; OpenAI-compatible streams use data: [DONE]. Empty closes the body directly.',
+      wireTerminatorHint: 'Custom protocol terminator. Empty uses built-in finalization; [DONE] alone may cause adapter errors.',
       onDetect: 'On a match',
       onDetectAsk: 'Ask me first (hold the reply until I release or discard it)',
-      onDetectBlock: 'Discard it (replace with a marker)',
+      onDetectBlock: 'Discard automatically',
       onDetectHint: 'With “ask me first”, the reply pauses in the pending list until you decide.',
       dryRun: 'Dry run',
       dryRunHint: 'Record detections without blocking, to check the rule first.',
@@ -139,7 +260,7 @@ window.__ModuleLoader__.load({
       askTimeoutMs: 'Decision timeout (ms)',
       askTimeoutHint: 'Unattended replies are discarded after this.',
       replacement: 'Replacement text',
-      replacementHint: 'What the session sees instead of a discarded reply.',
+      replacementHint: 'Empty writes no marker. Network mode may reject an empty replacement as an empty response.',
       blockToolCalls: 'Also block replies that call tools',
       blockToolCallsHint: 'By default a tool-calling reply is doing work, not refusing.',
       save: 'Save',
@@ -229,6 +350,103 @@ window.__ModuleLoader__.load({
       return { state, error, refresh: () => setNonce((value) => value + 1) }
     }
 
+    /** Session-private ephemeral SSE; disconnect never grants admission. */
+    function PreviewDock(props) {
+      const [items, setItems] = React.useState([])
+      const [disconnected, setDisconnected] = React.useState(false)
+      const sessionId = props.sessionId
+      React.useEffect(() => {
+        if (typeof sessionId !== 'string' || !sessionId) return
+        let live = true
+        let source = null
+        const disconnect = () => {
+          if (source) {
+            source.onmessage = null
+            source.onerror = null
+            source.close()
+            source = null
+          }
+        }
+        const connect = () => {
+          if (!live || source || document.visibilityState === 'hidden') return
+          const url = new URL(PREVIEW_PATH, window.location.origin)
+          url.searchParams.set('sessionId', sessionId)
+          try {
+            const active = new EventSource(url.toString(), { withCredentials: true })
+            source = active
+            active.onmessage = event => {
+              if (!live || source !== active) return
+              try {
+                const snapshot = JSON.parse(event.data)
+                if (!Array.isArray(snapshot.items)) throw new Error('invalid preview snapshot')
+                // Protect both session isolation and blocked/failed redaction at
+                // the view boundary, even if a stale server sends raw fields.
+                const statuses = ['receiving', 'checking', 'review', 'committing', 'blocked', 'failed']
+                setItems(snapshot.items.filter(item => item && item.sessionId === sessionId && typeof item.id === 'string' && statuses.includes(item.status)).map(item => {
+                  const hidden = item.status === 'blocked' || item.status === 'failed'
+                  return {
+                    id: item.id, status: item.status,
+                    text: !hidden && typeof item.text === 'string' ? item.text : '',
+                    reasoning: !hidden && typeof item.reasoning === 'string' ? item.reasoning : '',
+                    toolNames: !hidden && Array.isArray(item.toolNames) ? item.toolNames.filter(name => typeof name === 'string') : [],
+                    truncated: !hidden && item.truncated === true,
+                  }
+                }))
+                setDisconnected(false)
+              } catch {
+                setItems([])
+                setDisconnected(true)
+              }
+            }
+            active.onerror = () => {
+              if (!live || source !== active) return
+              setItems([])
+              setDisconnected(true)
+              // EventSource reconnects itself and receives a fresh snapshot.
+              // A disconnect never sends a decision or changes admission.
+            }
+          } catch {
+            setItems([])
+            setDisconnected(true)
+          }
+        }
+        const visibility = () => {
+          setItems([])
+          if (document.visibilityState === 'hidden') {
+            disconnect()
+            setDisconnected(false)
+          } else connect()
+        }
+        setItems([])
+        setDisconnected(false)
+        document.addEventListener('visibilitychange', visibility)
+        connect()
+        return () => {
+          live = false
+          disconnect()
+          document.removeEventListener('visibilitychange', visibility)
+        }
+      }, [sessionId])
+      const t = props.t
+      if (items.length === 0 && !disconnected) return null
+      return h('div', { style: { display: 'grid', gap: 8 } },
+        disconnected ? h('span', { role: 'status', style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary)' } }, t('previewDisconnected')) : null,
+        ...items.map(item => h('section', {
+          key: item.id,
+          'aria-label': t('previewReceiving'),
+          style: { padding: 12, borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-primary)' },
+        },
+          h('div', { style: { fontSize: 12, marginBottom: 6, color: 'var(--dsw-alias-label-secondary)' } },
+            t(item.status === 'blocked' ? 'previewBlocked' : item.status === 'failed' ? 'previewFailed' : item.status === 'review' ? 'previewReview' : item.status === 'checking' ? 'previewChecking' : item.status === 'committing' ? 'previewCommitting' : 'previewReceiving')),
+          h('div', { style: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: '40vh', overflow: 'auto', fontSize: 13 } }, item.text || ''),
+          item.reasoning ? h('details', {}, h('summary', {}, t('previewThinking')),
+            h('pre', { style: { whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto' } }, item.reasoning)) : null,
+          item.toolNames?.length ? h('div', { style: { fontSize: 12 } }, t('previewTools') + item.toolNames.join(', ')) : null,
+          item.truncated ? h('small', {}, t('previewTruncated')) : null,
+        )),
+      )
+    }
+
     /** Readable timestamp for one pending entry. */
     function clockOf(createdAt) {
       try {
@@ -255,11 +473,11 @@ window.__ModuleLoader__.load({
         borderRadius: 6,
         cursor: props.disabled ? 'default' : 'pointer',
         opacity: props.disabled ? 0.5 : 1,
-        border: '1px solid var(--dsw-alias-border-l2, #c9ced6)',
+        border: '1px solid var(--dsw-alias-border-l2)',
         background: props.primary
-          ? 'var(--dsw-alias-brand-primary, #2b6cb0)'
-          : 'var(--dsw-alias-bg-layer-1, #ffffff)',
-        color: props.primary ? '#ffffff' : 'var(--dsw-alias-label-primary, #1a1d21)',
+          ? 'var(--dsw-alias-bg-layer-2)'
+          : 'var(--dsw-alias-bg-layer-1)',
+        color: props.primary ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-label-primary)',
         whiteSpace: 'nowrap',
       }
       return h('button', {
@@ -268,44 +486,31 @@ window.__ModuleLoader__.load({
         onClick: props.onClick,
         style: { ...base, ...(props.style || {}) },
         title: props.title,
+        className: 'gk-button',
       }, props.children)
     }
 
-    /** A labelled control row. */
+    /** Each field owns its label so keyboard and assistive use match pointer use. */
     function Row(props) {
-      return h('div', { style: { display: 'grid', gap: 4, padding: '10px 0', borderTop: '1px solid var(--dsw-alias-border-l1)' } },
-        h('div', { style: { fontSize: 13, color: 'var(--dsw-alias-label-primary)' } }, props.label),
-        props.hint ? h('div', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary)' } }, props.hint) : null,
-        h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 } }, props.children),
+      return h('label', { className: 'gk-field' },
+        h('span', { className: 'gk-field-title' }, props.label),
+        props.hint ? h('span', { className: 'gk-muted gk-hint' }, props.hint) : null,
+        h('span', { className: 'gk-control' }, props.children),
       )
     }
-
-    /** The checkbox used by the boolean settings. */
     function Toggle(props) {
-      return h('label', { style: { display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 13, color: 'var(--dsw-alias-label-primary)', cursor: 'pointer' } },
-        h('input', {
-          type: 'checkbox',
-          checked: props.checked,
-          onChange: (event) => props.onChange(event.target.checked),
-          style: { accentColor: 'var(--dsw-alias-brand-primary)' },
-        }),
-        props.children,
+      return h('span', { className: 'gk-toggle' },
+        h('input', { type: 'checkbox', role: 'switch', checked: props.checked,
+          'aria-checked': props.checked, 'aria-label': props.label,
+          onChange: event => props.onChange(event.target.checked),
+          style: { accentColor: 'var(--dsw-alias-brand-primary)' } }),
+        h('span', { 'aria-hidden': true }, props.children),
       )
     }
-
-    /** The numeric and text inputs. */
     function textStyle() {
-      return {
-        font: 'inherit',
-        fontSize: 13,
-        padding: '0 8px',
-        height: 28,
-        minWidth: 120,
-        borderRadius: 6,
-        border: '1px solid var(--dsw-alias-border-l2)',
-        background: 'var(--dsw-alias-bg-layer-1)',
-        color: 'var(--dsw-alias-label-primary)',
-      }
+      return { font: 'inherit', fontSize: 13, padding: '7px 10px', width: '100%', minWidth: 0,
+        boxSizing: 'border-box', borderRadius: 8, border: '1px solid var(--dsw-alias-border-l2)',
+        background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)' }
     }
 
     /** Fields edited as text and parsed once, on save, with their minimum. */
@@ -318,7 +523,9 @@ window.__ModuleLoader__.load({
      * on screen is not the one in this file, the page is running old code and no
      * amount of Host-side fixing can change what is rendered.
      */
-    const BUILD = 'b7-save-always'
+    const UI_CSS = "\n.gk-page{width:100%;max-width:800px;min-width:0;color:var(--dsw-alias-label-primary);font-size:13px;line-height:1.5;box-sizing:border-box}\n.gk-page *{box-sizing:border-box}.gk-page [hidden]{display:none!important}\n.gk-page h2{margin:0;font-size:22px;font-weight:650;letter-spacing:-.4px}.gk-page h3{margin:0;font-size:14px}.gk-page h4{font-size:13px}\n.gk-page p{margin:5px 0}.gk-page-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:4px 0 16px}\n.gk-muted{color:var(--dsw-alias-label-secondary)}.gk-hint{font-size:12px;line-height:1.6}\n.gk-badge{display:inline-flex;align-items:center;padding:3px 9px;gap:6px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;font-size:11px;white-space:nowrap;background:var(--dsw-alias-bg-layer-2)}\n.gk-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}.gk-metrics>div{display:grid;gap:3px;padding:12px 14px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);border-radius:10px}.gk-metrics strong{font-size:21px;font-weight:600}.gk-metrics span{font-size:11px}\n.gk-savebar{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;margin-bottom:14px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:10px}\n.gk-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.gk-tabs{display:flex;gap:6px;border-bottom:1px solid var(--dsw-alias-border-l1);margin-bottom:16px}\n.gk-tabs button{appearance:none;font:inherit;cursor:pointer;background:transparent;color:var(--dsw-alias-label-secondary);padding:10px 12px;border:0;border-bottom:2px solid transparent}.gk-tabs button[aria-selected=true]{color:var(--dsw-alias-brand-primary);border-bottom-color:var(--dsw-alias-brand-primary);font-weight:600}\n.gk-stack{display:grid;gap:12px}.gk-card{border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);padding:16px;min-width:0}.gk-section-heading{padding-bottom:8px}.gk-section-heading p{font-size:12px;color:var(--dsw-alias-label-secondary)}\n.gk-field{display:grid;gap:5px;padding:12px 0;border-top:1px solid var(--dsw-alias-border-l1);min-width:0}.gk-field-title{font-weight:500}.gk-control{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}.gk-control input,.gk-control select,.gk-control textarea{max-width:100%}.gk-toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12px}.gk-toggle input{width:16px;height:16px;margin:0}\n.gk-page summary{cursor:pointer;list-style-position:inside;outline-offset:4px}.gk-page details>summary>.gk-muted{display:block;font-size:11px;margin-top:4px}.gk-record summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.gk-record time{margin-left:auto;font-size:11px}\n.gk-button:focus-visible,.gk-page input:focus-visible,.gk-page select:focus-visible,.gk-page textarea:focus-visible,.gk-tabs button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.gk-button:not(:disabled):hover{filter:brightness(.97)}\n.gk-note{border-left:2px solid var(--dsw-alias-brand-primary);padding:8px 10px;background:var(--dsw-alias-bg-layer-2);font-size:12px;color:var(--dsw-alias-label-secondary)}\n.gk-empty{padding:32px 18px;border:1px dashed var(--dsw-alias-border-l2);border-radius:12px;text-align:center;color:var(--dsw-alias-label-secondary)}.gk-empty p{font-size:12px;margin-top:8px}.gk-error{display:flex;align-items:center;gap:10px;margin:10px 0;color:var(--dsw-alias-state-error-primary);font-size:12px;overflow-wrap:anywhere}.gk-original{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font:inherit;line-height:1.7;max-height:360px;overflow:auto;margin:10px 0}.gk-footer{font-size:10px;text-align:right;padding-top:14px}\n@media(max-width:540px){.gk-page-heading{gap:8px}.gk-page h2{font-size:20px}.gk-savebar{flex-wrap:wrap}.gk-savebar>.gk-actions{margin-left:auto}.gk-card{padding:12px}.gk-metrics{gap:5px}.gk-metrics>div{padding:9px}.gk-tabs button{padding:10px 8px}.gk-record time{margin-left:0}}\n"
+
+    const BUILD = 'v0.3.1'
 
     /** A starter word list for the phrasings the built-in rules do not cover. */
     const SEED_BLOCKLIST = [
@@ -380,13 +587,18 @@ window.__ModuleLoader__.load({
             color: 'var(--dsw-alias-label-primary)',
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
-            maxHeight: 320,
+            maxHeight: '42vh',
             overflow: 'auto',
+            lineHeight: 1.75,
+            padding: 12,
+            borderRadius: 8,
+            border: '1px solid var(--dsw-alias-border-l1)',
+            background: 'var(--dsw-alias-bg-base)',
           },
         }, item.body || item.head || ''),
         h('div', { style: { display: 'flex', gap: 8 } },
-          h(Button, { onClick: () => decide('release'), disabled: busy, primary: true }, t('release')),
-          h(Button, { onClick: () => decide('block'), disabled: busy }, t('block')),
+          h(Button, { onClick: () => decide('release'), disabled: busy, primary: true, title: t('releaseHint'), style: { height: 34, padding: '0 16px' } }, t('release')),
+          h(Button, { onClick: () => decide('block'), disabled: busy, title: t('discardHint'), style: { height: 34, padding: '0 16px' } }, t('block')),
         ),
       )
     }
@@ -399,319 +611,120 @@ window.__ModuleLoader__.load({
       const { state, error, refresh } = useGuardState(1500)
       const [draft, setDraft] = React.useState(null)
       const [status, setStatus] = React.useState('')
-
-      const config = state && state.config ? state.config : null
-      React.useEffect(() => {
-        if (config !== null && draft === null) setDraft(config)
-      }, [config, draft])
-
+      const [tab, setTab] = React.useState('settings')
+      const config = state?.config || null
       const current = draft || config
-      const patch = (field) => (value) => setDraft({ ...(draft || config || {}), [field]: value })
-
-      /**
-       * Turn the draft into the body the Host accepts.
-       *
-       * Number fields are edited as strings so keystrokes are never coerced
-       * mid-typing — converting on every keystroke made the field rewrite
-       * itself while being edited. They are parsed once, here.
-       *
-       * @returns {object | null} the payload, or null when a field is invalid.
-       */
-      const payloadOf = (source) => {
-        const body = { ...source }
-        for (const [field, minimum] of Object.entries(NUMERIC_FIELDS)) {
-          const raw = body[field]
-          if (raw === undefined) continue
-          const parsed = Number.parseInt(String(raw).trim(), 10)
-          if (!Number.isInteger(parsed) || parsed < minimum) return null
-          body[field] = parsed
+      const list = value => Array.isArray(value) ? value : String(value || '').split('\n').map(line => line.trim()).filter(Boolean)
+      const patch = key => value => {
+        setDraft(prev => ({ ...(prev || config || {}), [key]: value }))
+        setStatus('')
+      }
+      const payloadOf = input => {
+        const body = { ...input }
+        for (const [field, minimum] of Object.entries({ ...NUMERIC_FIELDS, fastProbeChars: 8, wireReleaseChars: 1 })) {
+          if (body[field] === undefined) continue
+          const raw = String(body[field]).trim()
+          if (!/^\d+$/.test(raw)) return null
+          const number = Number(raw)
+          if (!Number.isSafeInteger(number) || number < minimum) return null
+          body[field] = number
         }
+        for (const key of ['blocklist','wireUrlPatterns']) if (body[key] !== undefined) body[key] = list(body[key])
         return body
       }
-
+      const canonical = object => JSON.stringify(Object.keys(object).sort().map(key => [key, object[key]]))
+      const normalized = current && payloadOf(current)
+      const dirty = !!draft && (!normalized || !config || canonical(normalized) !== canonical(config))
       const save = async () => {
-        if (current == null) return
+        if (!current || status === 'saving') return
         const body = payloadOf(current)
-        if (body === null) {
-          setStatus('failed:' + t('invalidNumber'))
-          return
-        }
+        if (!body) { setStatus('failed:' + t('fieldInvalid')); return }
         setStatus('saving')
         try {
           await postJson(CONFIG_PATH, body)
+          // Retain the edited body until the server's next snapshot confirms it.
+          setDraft(body)
           setStatus('saved')
-          // The plugin restarts with the saved values; drop the stale draft so
-          // the next poll shows what actually took effect.
-          setDraft(null)
-        } catch (failure) {
-          setStatus('failed:' + (failure instanceof Error ? failure.message : String(failure)))
-        }
+          refresh()
+        } catch (failure) { setStatus('failed:' + (failure instanceof Error ? failure.message : String(failure))) }
       }
-
-      const pending = state && Array.isArray(state.pending) ? state.pending : []
-      const recent = state && Array.isArray(state.recent) ? state.recent : []
-      const counters = (state && state.counters) || { blocked: 0, released: 0, asked: 0 }
-
-      return h('div', { style: { display: 'grid', gap: 4, maxWidth: 720 } },
-        h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 10 } },
-          h('h2', { style: { margin: 0, fontSize: 18, color: 'var(--dsw-alias-label-primary)' } }, t('title')),
-          h('span', { style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary)' } }, BUILD),
-        ),
-        h('p', { style: { margin: '2px 0 10px', fontSize: 13, color: 'var(--dsw-alias-label-secondary)' } }, t('lead')),
-
-        // The one number that separates "the rule missed it" from "the plugin
-        // was not running", which are indistinguishable from the conversation.
-        state !== null
-          ? h('div', {
-            style: {
-              fontSize: 12,
-              color: 'var(--dsw-alias-label-secondary)',
-              padding: '6px 10px',
-              marginBottom: 6,
-              borderRadius: 6,
-              border: '1px solid var(--dsw-alias-border-l1)',
-              background: 'var(--dsw-alias-bg-layer-2)',
-            },
-            title: t('callsHint'),
-          }, fill(t('callsSeen'), { calls: (state.counters && state.counters.calls) || 0 }))
-          : null,
-
-        error ? h('div', { style: { fontSize: 12, color: 'var(--dsw-alias-state-error-primary)', paddingBottom: 8 } },
-          t('error') + ': ' + error + ' ',
-          h(Button, { onClick: refresh, style: { height: 22 } }, t('reload')),
-        ) : null,
-
-        // The button stays on screen even when the state cannot be read: a
-        // vanished save button is indistinguishable from a broken panel.
-        current == null ? h('div', { style: { display: 'grid', gap: 10, paddingTop: 6 } },
-          h('div', { style: { fontSize: 13, color: 'var(--dsw-alias-label-secondary)' } },
-            error === null ? t('loading') : t('loadingFailed')),
-          h('div', {},
-            h(Button, { disabled: true }, t('save')),
-          ),
-        ) : h('div', {},
-          h(Row, { label: t('enabled'), hint: t('enabledHint') },
-            h(Toggle, { checked: current.enabled !== false, onChange: patch('enabled') }, current.enabled !== false ? 'on' : 'off'),
-          ),
-          h(Row, { label: t('interceptAt'), hint: t('interceptAtHint') },
-            h('select', {
-              value: current.interceptAt === 'wire' ? 'wire' : current.interceptAt === 'both' ? 'both' : 'stream',
-              onChange: (event) => patch('interceptAt')(event.target.value),
-              style: { ...textStyle(), minWidth: 360 },
-            },
-              h('option', { value: 'stream' }, t('interceptAtStream')),
-              h('option', { value: 'wire' }, t('interceptAtWire')),
-              h('option', { value: 'both' }, t('interceptAtBoth')),
-            ),
-          ),
-          // The TLS-layer block only has meaning when that layer is on.
-          (current.interceptAt === 'wire' || current.interceptAt === 'both')
-            ? h('div', {
-              style: {
-                display: 'grid',
-                gap: 0,
-                padding: '4px 12px 2px',
-                margin: '6px 0',
-                borderRadius: 8,
-                border: '1px solid var(--dsw-alias-border-l1)',
-                background: 'var(--dsw-alias-bg-layer-2)',
-              },
-            },
-              h('div', { style: { fontSize: 12, fontWeight: 600, padding: '8px 0 2px', color: 'var(--dsw-alias-label-primary)' } }, t('wireSection')),
-              h(Row, { label: t('wireScanResponses'), hint: t('wireScanResponsesHint') },
-                h(Toggle, { checked: current.wireScanResponses !== false, onChange: patch('wireScanResponses') }, current.wireScanResponses !== false ? 'on' : 'off'),
-              ),
-              h(Row, { label: t('wireScanRequests'), hint: t('wireScanRequestsHint') },
-                h(Toggle, { checked: current.wireScanRequests === true, onChange: patch('wireScanRequests') }, current.wireScanRequests === true ? 'on' : 'off'),
-              ),
-              h(Row, { label: t('wireBlockRequests') },
-                h(Toggle, { checked: current.wireBlockRequests === true, onChange: patch('wireBlockRequests') }, current.wireBlockRequests === true ? 'on' : 'off'),
-              ),
-              h(Row, { label: t('wireAbortUpstream'), hint: t('wireAbortUpstreamHint') },
-                h(Toggle, { checked: current.wireAbortUpstream !== false, onChange: patch('wireAbortUpstream') }, current.wireAbortUpstream !== false ? 'on' : 'off'),
-              ),
-              h(Row, { label: t('wireUrlPatterns'), hint: t('wireUrlPatternsHint') },
-                h('textarea', {
-                  value: (current.wireUrlPatterns || []).join('\n'),
-                  onChange: (event) => patch('wireUrlPatterns')(event.target.value.split('\n').map((line) => line.trim()).filter((line) => line.length > 0)),
-                  spellCheck: false,
-                  style: { ...textStyle(), height: 88, minWidth: 420, padding: '6px 8px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', resize: 'vertical', lineHeight: '18px' },
-                }),
-              ),
-              h(Row, { label: t('wireTerminator'), hint: t('wireTerminatorHint') },
-                h('input', {
-                  type: 'text',
-                  value: String(current.wireTerminator ?? ''),
-                  onChange: (event) => patch('wireTerminator')(event.target.value),
-                  style: { ...textStyle(), flex: 1, minWidth: 320, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' },
-                }),
-              ),
-            )
-            : null,
-          h(Row, { label: t('onDetect'), hint: t('onDetectHint') },
-            h('select', {
-              value: current.onDetect === 'block' ? 'block' : 'ask',
-              onChange: (event) => patch('onDetect')(event.target.value),
-              style: { ...textStyle(), minWidth: 320 },
-            },
-              h('option', { value: 'ask' }, t('onDetectAsk')),
-              h('option', { value: 'block' }, t('onDetectBlock')),
-            ),
-          ),
-          h(Row, { label: t('dryRun'), hint: t('dryRunHint') },
-            h(Toggle, { checked: current.dryRun === true, onChange: patch('dryRun') }, current.dryRun === true ? 'on' : 'off'),
-          ),
-          h(Row, { label: t('scanReasoning'), hint: t('scanReasoningHint') },
-            h(Toggle, { checked: current.scanReasoning !== false, onChange: patch('scanReasoning') }, current.scanReasoning !== false ? 'on' : 'off'),
-          ),
-          h(Row, { label: t('scanChars'), hint: t('scanCharsHint') },
-            h('input', {
-              type: 'number',
-              min: 1,
-              value: String(current.scanChars ?? 600),
-              // Kept as text while editing; parsed on save.
-              onChange: (event) => patch('scanChars')(event.target.value),
-              style: textStyle(),
-            }),
-          ),
-          h(Row, { label: t('askTimeoutMs'), hint: t('askTimeoutHint') },
-            h('input', {
-              type: 'number',
-              min: 1,
-              step: 1000,
-              value: String(current.askTimeoutMs ?? 120000),
-              onChange: (event) => patch('askTimeoutMs')(event.target.value),
-              style: textStyle(),
-            }),
-          ),
-          h(Row, { label: t('replacement'), hint: t('replacementHint') },
-            h('input', {
-              type: 'text',
-              value: String(current.replacementText ?? ''),
-              onChange: (event) => patch('replacementText')(event.target.value),
-              style: { ...textStyle(), flex: 1, minWidth: 320 },
-            }),
-          ),
-          h(Row, { label: t('blockToolCalls'), hint: t('blockToolCallsHint') },
-            h(Toggle, { checked: current.blockToolCalls === true, onChange: patch('blockToolCalls') }, current.blockToolCalls === true ? 'on' : 'off'),
-          ),
-          h(Row, {
-            label: t('blocklist'),
-            hint: t('blocklistHint') + ' · ' + fill(t('blocklistCount'), { count: (current.blocklist || []).length }),
-          },
-            h('textarea', {
-              value: (current.blocklist || []).join('\n'),
-              placeholder: t('blocklistPlaceholder'),
-              onChange: (event) => patch('blocklist')(event.target.value.split('\n').map((line) => line.trim()).filter((line) => line.length > 0)),
-              spellCheck: false,
-              style: {
-                ...textStyle(),
-                height: 132,
-                minWidth: 420,
-                padding: '6px 8px',
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                resize: 'vertical',
-                lineHeight: '18px',
-              },
-            }),
-          ),
-          h('div', { style: { display: 'flex', gap: 8, padding: '0 0 6px' } },
-            h(Button, {
-              onClick: () => {
-                const existing = new Set((current.blocklist || []).map((word) => word.toLowerCase()))
-                const merged = [...(current.blocklist || [])]
-                for (const word of SEED_BLOCKLIST) if (!existing.has(word.toLowerCase())) merged.push(word)
-                patch('blocklist')(merged)
-              },
-            }, t('blocklistSeed')),
-            h(Button, { onClick: () => patch('blocklist')([]) }, t('blocklistClear')),
-          ),
-          h('div', {
-            style: {
-              display: 'flex',
-              gap: 12,
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              margin: '14px 0 4px',
-              padding: '12px 14px',
-              borderRadius: 8,
-              border: '1px solid var(--dsw-alias-border-l2)',
-              background: 'var(--dsw-alias-bg-layer-2)',
-            },
-          },
-            h(Button, {
-              onClick: save,
-              disabled: status === 'saving',
-              primary: true,
-              style: { height: 32, padding: '0 20px', fontSize: 13, fontWeight: 600 },
-            }, status === 'saving' ? t('saving') : t('save')),
-            status === 'saved' ? h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-state-success-primary)' } }, t('saved')) : null,
-            status.startsWith('failed:') ? h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-state-error-primary)' } }, t('saveFailed') + ': ' + status.slice(7)) : null,
-            h('span', { style: { fontSize: 11, color: 'var(--dsw-alias-label-secondary)', marginLeft: 'auto' } }, BUILD),
-          ),
-        ),
-
-        h('h3', { style: { margin: '18px 0 6px', fontSize: 15, color: 'var(--dsw-alias-label-primary)' } }, t('pending')),
-        h('div', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary)', paddingBottom: 8 } },
-          fill(t('counters'), counters),
-        ),
-        pending.length === 0
-          ? h('div', { style: { fontSize: 13, color: 'var(--dsw-alias-label-secondary)', padding: '10px 0' } }, t('pendingEmpty'))
-          : h('div', { style: { display: 'grid', gap: 8 } }, pending.map((item) =>
-            h(PendingItem, {
-              key: item.id,
-              item,
-              t,
-              // Once the reply is settled the panel has nothing left to show,
-              // so it closes and returns the user to the conversation.
-              onSettled: () => {
-                refresh()
-                if (typeof props.close === 'function') props.close()
-              },
-              onError: (message) => setStatus('failed:' + message),
-            }))),
-
-        h('h3', { style: { margin: '18px 0 6px', fontSize: 15, color: 'var(--dsw-alias-label-primary)' } }, t('recent')),
-        recent.length === 0
-          ? h('div', { style: { fontSize: 13, color: 'var(--dsw-alias-label-secondary)', padding: '10px 0' } }, t('recentEmpty'))
-          : h('div', { style: { display: 'grid', gap: 6 } }, recent.map((entry, index) =>
-            h('div', {
-              key: String(entry.at) + '-' + String(index),
-              style: {
-                display: 'grid',
-                gap: 4,
-                padding: '8px 10px',
-                borderRadius: 8,
-                border: '1px solid var(--dsw-alias-border-l1)',
-                background: 'var(--dsw-alias-bg-layer-2)',
-              },
-            },
-              h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12, color: 'var(--dsw-alias-label-secondary)' } },
-                h('span', {
-                  style: {
-                    color: entry.dryRun
-                      ? 'var(--dsw-alias-state-warn-primary)'
-                      : entry.released
-                        ? 'var(--dsw-alias-state-success-primary)'
-                        : 'var(--dsw-alias-state-error-primary)',
-                  },
-                }, entry.dryRun ? t('outcomeDry') : entry.released ? t('outcomeReleased') : t('outcomeBlocked')),
-                h('span', {}, entry.reason || ''),
-                h('span', {}, String(entry.chars ?? 0) + ' ' + t('chars')),
-                h('span', {}, clockOf(entry.at)),
-                entry.sessionId ? h('span', { style: { opacity: 0.7 } }, String(entry.sessionId).slice(0, 8)) : null,
-              ),
-              h('div', {
-                style: {
-                  fontSize: 12,
-                  color: 'var(--dsw-alias-label-primary)',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  opacity: 0.85,
-                },
-              }, entry.head || ''),
-            ))),
-      )
+      React.useEffect(() => {
+        if (draft && config && canonical(draft) === canonical(config)) setDraft(null)
+      }, [config, draft])
+      const pending = state?.pending || []
+      const recent = state?.recent || []
+      const counters = state?.counters || {}
+      const mode = current?.interceptAt || 'stream'
+      const modeLabel = { stream:'modeStream',wire:'modeWire',both:'modeBoth',preview:'modePreview' }
+      const modeHint = { stream:'modeStreamHint',wire:'modeWireHint',both:'modeBothHint',preview:'modePreviewHint' }
+      const toggle = (field,label,hint) => h(Row, { label:t(label), hint:hint && t(hint) },
+        h(Toggle, { checked:current[field] === true, label:t(label), onChange:patch(field) }, t(current[field] ? 'statusEnabled' : 'statusDisabled')))
+      const number = (field,label,min=1) => h(Row, { label:t(label), hint: min + '+' },
+        h('input',{ type:'number', min, step:1, value:String(current[field] ?? ''), onChange:event=>patch(field)(event.target.value), style:textStyle() }))
+      const card = (title,hint,...children) => h('section',{className:'gk-card'},
+        h('div',{className:'gk-section-heading'},h('h3',{},t(title)),hint && h('p',{className:'gk-muted'},t(hint))),...children)
+      return h('div',{className:'gk-page'},
+        h('style',{},UI_CSS),
+        h('div',{className:'gk-page-heading'},
+          h('div',{},h('h2',{},t('title')),h('p',{className:'gk-muted'},t('lead'))),
+          h('span',{className:'gk-badge'},!current ? t('loading') : t(!current.enabled ? 'statusDisabled' : current.dryRun ? 'statusDry' : 'statusEnabled'))),
+        h('div',{className:'gk-metrics'},...[
+          [t('checkedLabel'),counters.calls || 0],[t('pendingLabel'),pending.length],[t('blockedLabel'),recent.length],
+        ].map(([label,value])=>h('div',{key:label},h('strong',{},value),h('span',{className:'gk-muted'},label)))),
+        h('div',{className:'gk-savebar'},
+          h('span',{className:'gk-muted',role:'status','aria-live':'polite'},status === 'saved' ? t('saved') : dirty ? t('dirty') : t('clean')),
+          h('div',{className:'gk-actions'},
+            h(Button,{disabled:!dirty || status==='saving',onClick:()=>{setDraft(null);setStatus('')}},t('undo')),
+            h(Button,{primary:true,disabled:!current || !dirty || status==='saving',onClick:save},t(status==='saving'?'saving':'save')))),
+        status.startsWith('failed:') && h('div',{className:'gk-error',role:'alert'},t('saveFailed')+': '+status.slice(7)),
+        error && h('div',{className:'gk-error',role:'alert'},t('error')+': '+error,h(Button,{onClick:refresh},t('reload'))),
+        h('div',{className:'gk-tabs',role:'tablist','aria-label':t('title')},...[
+          ['settings',t('tabSettings')],['review',t('tabReview')+' ('+pending.length+')'],['history',t('tabHistory')],
+        ].map(([key,label])=>h('button',{key,id:'gk-tab-'+key,type:'button',role:'tab','aria-selected':tab===key,'aria-controls':'gk-panel-'+key,
+          tabIndex:tab===key?0:-1,onClick:()=>setTab(key),onKeyDown:event=>{
+            const keys=['settings','review','history']; let index=keys.indexOf(key)
+            if(event.key==='ArrowRight') index=(index+1)%3; else if(event.key==='ArrowLeft') index=(index+2)%3; else return
+            event.preventDefault();setTab(keys[index]);event.currentTarget.parentElement.children[index].focus()
+          }},label))),
+        h('div',{id:'gk-panel-settings',role:'tabpanel','aria-labelledby':'gk-tab-settings',hidden:tab!=='settings'},
+          !current ? h('div',{className:'gk-empty'},t(error?'loadingFailed':'loading')) : h('div',{className:'gk-stack'},
+            card('basicTitle','basicHint',
+              toggle('enabled','enabled','enabledHint'),
+              h(Row,{label:t('interceptAt'),hint:t(modeHint[mode] || 'modeStreamHint')},h('select',{value:mode,onChange:event=>patch('interceptAt')(event.target.value),style:textStyle()},
+                ...['stream','preview','wire','both'].map(key=>h('option',{key,value:key},t(modeLabel[key]))))),
+              mode==='preview' && h('p',{className:'gk-note'},t('previewHint')),
+              h(Row,{label:t('onDetect')},h('select',{value:current.onDetect,onChange:event=>patch('onDetect')(event.target.value),style:textStyle()},
+                h('option',{value:'block'},t('onDetectBlock')),h('option',{value:'ask'},t('onDetectAsk')))),
+              current.onDetect==='ask' && number('askTimeoutMs','askTimeoutMs'),
+              toggle('dryRun','dryRun','dryRunHint')),
+            card('scopeTitle','scopeHint',toggle('scanReasoning','scanReasoning','scanReasoningHint'),toggle('scanToolArgs','scanTools','scanToolsHint')),
+            card('wordsTitle','wordsHint',
+              h(Row,{label:fill(t('blocklistCount'),{count:list(current.blocklist).length})},h('textarea',{value:Array.isArray(current.blocklist)?current.blocklist.join('\n'):current.blocklist || '',
+                onChange:event=>patch('blocklist')(event.target.value),placeholder:t('blocklistPlaceholder'),spellCheck:false,rows:6,style:{...textStyle(),resize:'vertical',fontFamily:'monospace'}})),
+              h('div',{className:'gk-actions'},h(Button,{onClick:()=>patch('blocklist')([...new Set([...list(current.blocklist),...SEED_BLOCKLIST])])},t('blocklistSeed')),
+                h(Button,{onClick:()=>patch('blocklist')([]),disabled:list(current.blocklist).length===0},t('blocklistClear')))),
+            h('details',{className:'gk-card'},h('summary',{},t('advancedTitle'),h('span',{className:'gk-muted'},t('advancedHint'))),
+              mode==='preview' ? h('p',{className:'gk-note'},t('disabledPreviewFields')) : h('div',{className:'gk-stack'},
+                number('scanChars','scanChars'),number('minChars','minCharsLabel',0),toggle('blockToolCalls','blockToolCalls','blockToolCallsHint'),
+                (mode==='stream'||mode==='both') && h('div',{},toggle('fastPath','fastLabel','fastHint'),current.fastPath && number('fastProbeChars','fastProbe')),
+                h(Row,{label:t('replacement'),hint:t('replacementHint')},h('input',{value:current.replacementText||'',onChange:event=>patch('replacementText')(event.target.value),style:textStyle()}))),
+              (mode==='wire'||mode==='both') && h('section',{},h('h4',{},t('wireSection')),h('p',{className:'gk-note'},t('wireSafeHint')),
+                toggle('wireScanResponses','wireScanResponses','wireScanResponsesHint'),toggle('wireScanRequests','wireScanRequests','wireScanRequestsHint'),
+                current.wireScanRequests && toggle('wireBlockRequests','wireBlockRequests'),toggle('wireAbortUpstream','wireAbortUpstream','wireAbortUpstreamHint'),
+                number('wireReleaseChars','wireReleaseLabel'),
+                h(Row,{label:t('wireUrlPatterns'),hint:t('wireUrlPatternsHint')},h('textarea',{rows:4,value:Array.isArray(current.wireUrlPatterns)?current.wireUrlPatterns.join('\n'):current.wireUrlPatterns||'',onChange:event=>patch('wireUrlPatterns')(event.target.value),style:{...textStyle(),resize:'vertical'}})),
+                h(Row,{label:t('wireTerminator')},h('textarea',{rows:3,value:current.wireTerminator||'',onChange:event=>patch('wireTerminator')(event.target.value),style:{...textStyle(),resize:'vertical'}})))),
+            h('p',{className:'gk-muted gk-hint'},t('restartHint')))),
+        h('section',{id:'gk-panel-review',role:'tabpanel','aria-labelledby':'gk-tab-review',hidden:tab!=='review',className:'gk-stack'},
+          pending.length ? pending.map(item=>h(PendingItem,{key:item.id,item,t,onSettled:()=>{refresh();props.close?.()},onError:message=>setStatus('failed:'+message)}))
+          : h('div',{className:'gk-empty'},h('strong',{},t('pendingEmpty')),h('p',{},t('reviewEmptyHint')))),
+        h('section',{id:'gk-panel-history',role:'tabpanel','aria-labelledby':'gk-tab-history',hidden:tab!=='history',className:'gk-stack'},
+          h('p',{className:'gk-muted gk-hint'},t('historyHint')),
+          !recent.length ? h('div',{className:'gk-empty'},h('strong',{},t('recentEmpty')),h('p',{},t('historyEmptyHint'))) : recent.map((entry,index)=>h('details',{key:String(entry.at)+'-'+index,className:'gk-card gk-record'},
+            h('summary',{},h('span',{className:'gk-badge'},t(entry.dryRun?'outcomeDry':entry.released?'outcomeReleased':'outcomeBlocked')),h('span',{},entry.reason || ''),h('time',{className:'gk-muted'},clockOf(entry.at))),
+            h('p',{className:'gk-muted gk-hint'},String(entry.chars || 0)+' '+t('chars')),
+            h('pre',{className:'gk-original'},entry.head || t('noContent'))))),
+        h('div',{className:'gk-footer gk-muted'},'dsh-gatekeeper · '+BUILD))
     }
 
     /**
@@ -723,14 +736,27 @@ window.__ModuleLoader__.load({
      */
     function Overlay(props) {
       const [mounted, setMounted] = React.useState(false)
+      const cardRef = React.useRef(null)
+      React.useEffect(() => { setMounted(true) }, [])
       React.useEffect(() => {
-        setMounted(true)
-        const onKey = (event) => {
-          if (event.key === 'Escape') props.onClose()
+        const previous = document.activeElement
+        const card = cardRef.current
+        card?.focus()
+        const onKey = event => {
+          if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); props.onClose(); return }
+          if (event.key !== 'Tab' || !card) return
+          const controls = [...card.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]')]
+          if (!controls.length) { event.preventDefault(); card.focus(); return }
+          const first = controls[0], last = controls[controls.length - 1]
+          if (event.shiftKey && (document.activeElement === first || document.activeElement === card)) { event.preventDefault(); last.focus() }
+          else if (!event.shiftKey && (document.activeElement === last || document.activeElement === card)) { event.preventDefault(); first.focus() }
         }
-        window.addEventListener('keydown', onKey)
-        return () => window.removeEventListener('keydown', onKey)
-      }, [props.onClose])
+        card?.addEventListener('keydown', onKey)
+        return () => {
+          card?.removeEventListener('keydown', onKey)
+          if (previous?.isConnected && typeof previous.focus === 'function') previous.focus()
+        }
+      }, [mounted, props.onClose])
 
       const backdrop = {
         position: 'fixed',
@@ -739,8 +765,8 @@ window.__ModuleLoader__.load({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 24,
-        background: 'rgba(0, 0, 0, 0.45)',
+        padding: 12,
+        background: 'color-mix(in srgb, var(--dsw-alias-label-primary) 30%, transparent)',
       }
       const card = {
         display: 'grid',
@@ -752,16 +778,14 @@ window.__ModuleLoader__.load({
         borderRadius: 12,
         border: '1px solid var(--dsw-alias-border-l2)',
         background: 'var(--dsw-alias-bg-overlay)',
-        boxShadow: '0 12px 40px rgba(0, 0, 0, 0.35)',
+        boxShadow: '0 12px 40px var(--dsw-alias-border-l2)',
       }
       const node = h('div', {
         style: backdrop,
-        role: 'dialog',
-        'aria-modal': 'true',
         onClick: (event) => {
           if (event.target === event.currentTarget) props.onClose()
         },
-      }, h('div', { style: card }, props.children))
+      }, h('div', { style: card, className: 'gk-page', ref: cardRef, tabIndex: -1, role: 'dialog', 'aria-modal': true, 'aria-label': props.label }, h('style', {}, UI_CSS), props.children))
 
       if (createPortal !== null && mounted) return createPortal(node, document.body)
       return node
@@ -774,6 +798,7 @@ window.__ModuleLoader__.load({
       const t = props.t
       const { state, refresh } = useGuardState(1500)
       const [busyId, setBusyId] = React.useState(null)
+      const [failureMessage, setFailureMessage] = React.useState('')
       const all = state && Array.isArray(state.pending) ? state.pending : []
       const pending = typeof props.sessionId === 'string'
         ? all.filter((item) => item.sessionId === props.sessionId)
@@ -786,22 +811,27 @@ window.__ModuleLoader__.load({
 
       const decide = async (id, action) => {
         setBusyId(id)
+        setFailureMessage('')
         try {
           await postJson(DECIDE_PATH, { id, action })
-          await refresh()
+          refresh()
+          props.onClose()
         } catch (failure) {
-          props.onError(failure instanceof Error ? failure.message : String(failure))
+          const message = failure instanceof Error ? failure.message : String(failure)
+          setFailureMessage(message)
+          props.onError(message)
         } finally {
           setBusyId(null)
         }
       }
 
-      return h(Overlay, { onClose: props.onClose },
+      return h(Overlay, { onClose: props.onClose, label: t('reviewTitle') },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 12 } },
           h('h2', { style: { margin: 0, fontSize: 16, color: 'var(--dsw-alias-label-primary)' } }, t('reviewTitle')),
           h(Button, { onClick: props.onClose, style: { marginLeft: 'auto' } }, t('close')),
         ),
-        h('div', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary)' } }, t('reviewHint')),
+        h('div', { className: 'gk-note' }, t('reviewHint')),
+        failureMessage && h('div', { className: 'gk-error', role: 'alert' }, failureMessage),
         pending.length === 0
           ? h('div', { style: { fontSize: 13, color: 'var(--dsw-alias-label-secondary)', padding: '12px 0' } }, t('pendingEmpty'))
           : pending.map((item) => h(PendingItem, {
@@ -829,9 +859,11 @@ window.__ModuleLoader__.load({
       const pending = typeof sessionId === 'string' ? all.filter((item) => item.sessionId === sessionId) : all
       const close = React.useCallback(() => setOpen(false), [])
 
-      if (pending.length === 0 && !open) return null
+      const preview = state?.config?.interceptAt === 'preview' ? h(PreviewDock, props) : null
+      if (pending.length === 0 && !open) return preview
 
       return h('div', {},
+        preview,
         h('div', {
           role: 'button',
           tabIndex: 0,
