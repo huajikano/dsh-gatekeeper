@@ -1,16 +1,25 @@
 # 闸总 · Gatekeeper
 
-> 把模型说出口的"抱歉，我不能协助…"挡在会话之外。
+> 把模型说出口的"抱歉，我不能协助…"挡在会话之外，也把会删掉整个磁盘的命令挡在执行之前。
 >
-> 一个 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件：在流式 chunk 落进会话日志**之前**判定并拦截拒绝性回复，避免它污染后续每一轮上下文。
+> 一个 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件：在流式 chunk 落进会话日志**之前**判定并拦截拒绝性回复，避免它污染后续每一轮上下文；同时在工具调用执行前判定危险删除命令（v0.4.0 起，可单独关掉）。
 
 包名：`dsh-gatekeeper`　插件行 id：`gatekeeper`
+
+两半插件，两个独立开关：
+
+| | 挂在哪 | 管什么 | 默认 |
+|---|---|---|---|
+| 回复拦截 | `llm/stream` | 拒绝性回复进入会话之前 | 开，命中即丢弃 |
+| 磁盘保护 | `tools/pre-execute` | 整盘删除 / 格式化 / 清空回收站 / 下载即执行 | 开，致命档拒绝、大批量档只记录 |
 
 ## 它解决什么
 
 模型偶尔会回一段"抱歉，我不能协助…"。这段话一旦进入会话日志，后面每一轮请求都会重新读到它，越滚越长，把上下文带偏。
 
 这个插件挂在 `llm/stream` 上——包住每次流式模型调用的 waterfall——在 agent loop 把 chunk 折叠成 `assistant/message` 并提交**之前**做判定。命中就丢弃内容，`usage` 元数据照常透传，token 计量不受影响。因为替换发生在提交之前，会话日志里根本不会出现那段拒绝原文。
+
+v0.4.0 起它还挡另一类事故：**会删掉整个磁盘的命令**。同一个插件多挂一个 `tools/pre-execute`，在工具真正执行前读命令文本，删盘符根、格式化、清空回收站、`iex (irm …)` 这种下载即执行，全部在这里被拒。它有自己的开关，不想要就只留回复拦截。
 
 ## 安装
 
@@ -19,7 +28,7 @@
 # 包类型是 bundle，patch 会插入 id 为 gatekeeper 的一行
 ```
 
-装好后在 **设置 → 拒绝拦截** 里能看到开关与记录面板。
+装好后在 **设置 → 拒绝拦截** 里能看到开关与记录面板，往下有 **磁盘保护** 卡片。
 
 ## 拦截点
 
@@ -152,6 +161,68 @@ TURN END: {"kind":"completed"}
 | 稳定性 | 高 | 低（改了进程级 fetch） |
 
 **日常用 `stream`。** `wire` 留给"必须看请求体"或"怀疑有调用绕过了 `llm/stream`"的场景。
+
+## 磁盘保护（v0.4.0 起，可单独开关）
+
+回复拦截管的是"模型说了什么"，这一节管的是"模型要做什么"。
+
+它的出现有具体代价：一次真实的会话里，agent 跑了从网上下载的一行 PowerShell（`iex (irm 'https://…/gf.ps1')`），脚本遍历磁盘删掉了 **405,225 个文件 / 35,411 个目录**，耗时约两分钟，随后清空回收站。机器是单块 NVMe SSD 且开了 TRIM（`DisableDeleteNotify = 0`），抽样 60 个扇区有 57 个读回全零，没有卷影副本，恢复工具全部无效。数据不是"删除"，是**已从闪存上抹掉**。
+
+所以这一半插件挂在 `tools/pre-execute` 上——工具调用真正执行之前：
+
+```
+'tools/pre-execute'(this: Scoped<ToolsService>, exec: ToolExecution, next: () => Promise<PreToolDecision>): Promise<PreToolDecision>
+```
+
+读 `exec.name` 和 `exec.arguments` 里的命令文本，命中就返回 `deny`（或按配置 `ask`）。判定是纯本地的，不发任何网络请求。
+
+### 分两档
+
+| 档位 | 抓什么 | 默认 |
+|---|---|---|
+| **致命**（`critical`） | 删盘符根 / 文件系统根 / 用户目录；格式化、分区、`Clear-Disk`、`mkfs`、`diskpart … clean`；清空回收站；远程下载并执行（`iex(irm …)`、`iwr … \| iex`、`curl … \| bash`、`certutil -urlcache`）；写裸设备（`dd of=/dev/…`、`\\.\PhysicalDrive0`）；抹空余空间（`cipher /w`） | `block` |
+| **大批量**（`risky`） | 递归强删不在构建目录里的路径；镜像同步（`robocopy /MIR`、`rsync --delete`）；`takeown /r`、`icacls /reset`；`git clean -fdx`；`-EncodedCommand`；`diskpart` 脚本 | `warn` |
+
+`risky` 默认只**记录**不拦：日常清理整个项目目录也会落进这一档，静默拒绝正常干活比漏报更糟。记录会出现在设置页的「最近记录」里，带规则名和原始命令。
+
+构建/临时目录里的删除完全不报告——`node_modules`、`.git`、`dist`、`build`、`target`、`obj`、`__pycache__`、`.cache`、`.next` 等（完整列表见 `diskGuardAllowDirs`）。判定要求**命令行里出现的每个路径**都落在这些名字或临时目录下，只要掺了一个别的目录就照常报告。
+
+### 四种处理方式
+
+每条档位都能单独设成：
+
+| 值 | 行为 |
+|---|---|
+| `block` | 直接拒绝。模型收到拒绝原因（含规则名与命中的片段）和"改成删具体文件"的指引，所以它不会原地重试同一条命令。 |
+| `ask` | 把这次工具调用**挂起**在待审区，等你点「确认执行」或「拒绝执行」。超时或这一轮被取消 → 按拒绝处理。 |
+| `warn` | 放行，只写进记录和日志。 |
+| `off` | 不处理这一档。`diskGuardEnabled: false` 则整个磁盘保护关掉。 |
+
+`ask` **没有**用 DSH 的 `approval` 服务——同一个原因：审批策略是 `never` 时它直接返回 `rejected`，弹不出来。插件用自己的待审区，所以真能问到你。
+
+### 配置
+
+```yaml
+- id: gatekeeper
+  config:
+    diskGuardEnabled: true     # 总开关，独立于回复拦截
+    diskGuardCritical: block   # 致命档：block / ask / warn / off
+    diskGuardRisky: warn       # 大批量档
+    diskGuardTools: [pwsh, bash, shell, sh, zsh, powershell, cmd, terminal_send]
+    diskGuardAllowDirs: [node_modules, .git, dist, build, target, obj, tmp, temp]
+    diskGuardDisabledRules: []  # 想关掉的单条规则名
+```
+
+`diskGuardTools` 是白名单：只有列出来的工具才会被当作 shell 读取。默认包含 `pwsh` / `bash` 这类执行工具和 `terminal_send`（它能把命令打进已有终端）——**这两个都得有**，否则从终端里敲进去的命令不经过检查。
+
+`sessionsExclude` / `sessions` 对两半插件同样生效：被静音的会话连工具调用也不查。
+
+### 边界，说清楚
+
+- **只看得到工具调用的参数**。已经在跑的脚本、程序在运行时拼出来的命令、用户自己敲的命令，都不经过这个钩子。那次事故里 `gf.ps1` 的删除循环看不到——被抓到的是**启动它的那一行** `iex (irm …)`，这也是唯一可抓的位置。
+- 规则是正则，不是沙箱。换个没见过的写法、编码或间接调用就能绕过；`warn` 档本来就允许通过。它挡的是"顺手把盘删了"这类事故，不是恶意对手。
+- 下载后执行分两段写（`Start-BitsTransfer …; .\a.exe`）只能算 `risky`，因为静态地说"这个二进制是刚下载的"并不可靠。
+- 判定出错一律**放行**（fail open）：保护层坏掉不应该让 agent 也坏掉。这个选择有测试覆盖。
 
 ## 拦截之后怎么办
 
@@ -344,6 +415,8 @@ pass                          | 引用一句普通文本「请把偏移量填好
 | `blockToolCalls` | `false` | 连带工具调用的回复也拦 |
 | `auditPath` | `''` | 非空则把每次命中追加成 JSONL |
 
+磁盘保护自己的字段（`diskGuardEnabled` / `diskGuardCritical` / `diskGuardRisky` / `diskGuardTools` / `diskGuardAllowDirs` / `diskGuardDisabledRules`）见上面的〈磁盘保护〉一节。两半插件把命中写进同一个 `auditPath`，用记录的 `kind` 区分。
+
 **建议先开 `dryRun: true` 跑一段时间**，看 `auditPath` 里的记录确认没有误杀，再关掉。
 
 ## 只守主对话流（重要）
@@ -374,13 +447,13 @@ streamWithRegistration(options, prepared) {
 
 | | auto-review | 本插件 |
 |---|---|---|
-| 挂在哪 | `tools/pre-execute` | `llm/stream` |
-| 管什么 | **工具调用**执行前 | **回复文本**进入会话前 |
-| 谁决定 | 另起一次 LLM 调用判风险等级 | 本地正则判拒绝形态 |
-| 输出 | `allow` / `deny` / `ask` 用户 | 丢弃原文，换一句标记 |
+| 挂在哪 | `tools/pre-execute` | `llm/stream`（回复）+ `tools/pre-execute`（磁盘命令） |
+| 管什么 | **工具调用**执行前 | 回复文本进入会话前；以及**危险删除命令**执行前 |
+| 谁决定 | 另起一次 LLM 调用判风险等级 | 本地正则判拒绝形态 / 判删除形态 |
+| 输出 | `allow` / `deny` / `ask` 用户 | 丢弃原文，换一句标记；或拒绝/挂起危险命令 |
 | 失败方向 | fail closed（拒了工具调用） | fail open（原样放行） |
 
-一个是**执行前的闸门**，一个是**发言后的过滤**。auto-review 不碰回复文本，本插件不碰工具调用。
+一个主要管**发言后的过滤**，另一个管**执行前的闸门**；磁盘保护是 v0.4.0 之后新加在 `tools/pre-execute` 上的另一半，只管"会删盘的命令"这一类，不做泛化的风险评级。
 
 唯一交叉点是它们共用 `llm/stream`：auto-review 自己的评审调用（`purpose: 'auto-review'`）也走这条流。改动前本插件会拦它——现在默认放过，不会互相干扰。
 
@@ -416,6 +489,7 @@ streamWithRegistration(options, prepared) {
 - 检测是**启发式**，不是分类器。`patterns` 用来补漏。
 - 拦截后模型那一轮就"什么都没说"。如果你希望它换个说法重试，那是另一个插件的事。
 - 流式显示会有 `scanChars` 那么多字符的延迟——判定前必须缓冲。
+- 磁盘保护是**参数级正则**，不是沙箱：看不到已在运行的脚本内部，也挡不住刻意绕过（见上一节的边界说明）。它能防的是误删这类事故。
 
 ## 测试
 
@@ -423,4 +497,4 @@ streamWithRegistration(options, prepared) {
 node --test test/*.test.mjs
 ```
 
-覆盖旧模式、中英规则、预览先于提交的时序、全文和跨块命中、审核原始证据、取消、失败、内存预算、SSE 会话隔离与重连、卸载清理。测试计数以实际运行结果为准。
+覆盖旧模式、中英规则、预览先于提交的时序、全文和跨块命中、审核原始证据、取消、失败、内存预算、SSE 会话隔离与重连、卸载清理；以及磁盘保护的规则命中/不命中、两档动作、`ask` 挂起与超时、会话过滤、fail-open、设置页渲染与文案完整性。测试计数以实际运行结果为准。

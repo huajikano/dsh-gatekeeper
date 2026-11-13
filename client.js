@@ -44,6 +44,28 @@ window.__ModuleLoader__.load({
       checkedLabel: "已检查",
       pendingLabel: "当前待审",
       blockedLabel: "拦截记录",
+      diskLabel: "磁盘命中",
+      diskTitle: "磁盘保护",
+      diskHint: "工具调用里的整盘删除、格式化、清空回收站、下载即执行，在这里被拦住。它和上面的回复拦裁是两套独立开关。",
+      diskGuardEnabledLabel: "启用磁盘保护",
+      diskGuardEnabledHint: "关掉后只管模型回复，不再检查工具调用。",
+      diskCritical: "致命命令",
+      diskCriticalHint: "删盘符根或用户目录、格式化/分区、清空回收站、远程下载并执行、直写裸设备。",
+      diskRisky: "大批量删除",
+      diskRiskyHint: "递归强删非构建目录、镜像同步、清理未跟踪文件。默认只记录：日常清理项目也会落进这一档。",
+      diskActionBlock: "直接拒绝",
+      diskActionAsk: "先问我（挂起调用）",
+      diskActionWarn: "放行并记录",
+      diskActionOff: "不处理",
+      diskTools: "受检工具",
+      diskToolsHint: "一行一个工具名。只有这些工具的参数会被当作命令读取。",
+      diskAllowDirs: "允许删除的目录名",
+      diskAllowDirsHint: "一行一个名字。目标落在这些目录里的递归删除算正常清理，不报告。",
+      diskRules: "停用的规则",
+      diskRulesHint: "一行一个规则名（记录里会显示），用来单独关掉误报多的那条。",
+      outcomeWarn: "已放行并记录",
+      diskAskHint: "「先问我」会把这次工具调用挂起到待审区，等你放行或丢弃；超时按拒绝处理。",
+      diskNote: "只能检查工具调用的参数，看不到已经跑起来的脚本内部在做什么。",
       historyHint: "仅保留本次运行的最近记录；重新加载插件后会清空。",
       reviewEmptyHint: "选择“先问我”后，命中的回复会在这里等待处理。",
       historyEmptyHint: "命中事件出现后，可在这里查看处理结果。",
@@ -144,6 +166,8 @@ window.__ModuleLoader__.load({
       outcomeDry: '演练命中',
       release: '放行',
       block: '丢弃',
+      diskRun: '确认执行',
+      diskDeny: '拒绝执行',
       chars: '字符',
       counters: '累计：拦截 {blocked} · 放行 {released} · 待审 {asked}',
       bannerLead: '有 {count} 条回复被拦下，等待你决定',
@@ -274,11 +298,35 @@ window.__ModuleLoader__.load({
       pendingEmpty: 'Nothing is waiting.',
       recent: 'Recent records',
       recentEmpty: 'No detections yet.',
+      diskLabel: 'Disk hits',
+      diskTitle: 'Disk protection',
+      diskHint: 'Tool calls that would delete a drive, format a volume, empty the Recycle Bin, or run a downloaded script are stopped here. This is a separate switch from reply interception above.',
+      diskGuardEnabledLabel: 'Enable disk protection',
+      diskGuardEnabledHint: 'Off means only model replies are checked; tool calls are left alone.',
+      diskCritical: 'Destructive commands',
+      diskCriticalHint: 'Deleting a drive root or a user profile, formatting or partitioning, emptying the Recycle Bin, running a downloaded script, writing to a raw device.',
+      diskRisky: 'Bulk deletes',
+      diskRiskyHint: 'Recursive force deletes outside build directories, mirror syncs, cleaning untracked files. Records only by default: ordinary project cleanup lands here too.',
+      diskActionBlock: 'Deny',
+      diskActionAsk: 'Ask me first (holds the call)',
+      diskActionWarn: 'Allow and record',
+      diskActionOff: 'Ignore',
+      diskTools: 'Watched tools',
+      diskToolsHint: 'One tool name per line. Only these tools have their arguments read as a command.',
+      diskAllowDirs: 'Directories that may be deleted',
+      diskAllowDirsHint: 'One name per line. A recursive delete that only names these counts as build cleanup and is not reported.',
+      diskRules: 'Disabled rules',
+      diskRulesHint: 'One rule id per line (the id appears in each record), to switch off a single rule that misfires.',
+      outcomeWarn: 'allowed and recorded',
+      diskAskHint: 'Ask me first holds the tool call in the review tab until you release or discard it. A timeout denies it.',
+      diskNote: 'This reads the arguments of a tool call. It cannot see what a script that is already running does.',
       outcomeBlocked: 'blocked',
       outcomeReleased: 'released',
       outcomeDry: 'dry-run hit',
       release: 'Release',
       block: 'Discard',
+      diskRun: 'Run it anyway',
+      diskDeny: 'Deny it',
       chars: 'chars',
       counters: 'Total: {blocked} blocked · {released} released · {asked} asked',
       bannerLead: '{count} reply held for your decision',
@@ -525,7 +573,7 @@ window.__ModuleLoader__.load({
      */
     const UI_CSS = "\n.gk-page{width:100%;max-width:800px;min-width:0;color:var(--dsw-alias-label-primary);font-size:13px;line-height:1.5;box-sizing:border-box}\n.gk-page *{box-sizing:border-box}.gk-page [hidden]{display:none!important}\n.gk-page h2{margin:0;font-size:22px;font-weight:650;letter-spacing:-.4px}.gk-page h3{margin:0;font-size:14px}.gk-page h4{font-size:13px}\n.gk-page p{margin:5px 0}.gk-page-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:4px 0 16px}\n.gk-muted{color:var(--dsw-alias-label-secondary)}.gk-hint{font-size:12px;line-height:1.6}\n.gk-badge{display:inline-flex;align-items:center;padding:3px 9px;gap:6px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;font-size:11px;white-space:nowrap;background:var(--dsw-alias-bg-layer-2)}\n.gk-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}.gk-metrics>div{display:grid;gap:3px;padding:12px 14px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);border-radius:10px}.gk-metrics strong{font-size:21px;font-weight:600}.gk-metrics span{font-size:11px}\n.gk-savebar{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;margin-bottom:14px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:10px}\n.gk-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.gk-tabs{display:flex;gap:6px;border-bottom:1px solid var(--dsw-alias-border-l1);margin-bottom:16px}\n.gk-tabs button{appearance:none;font:inherit;cursor:pointer;background:transparent;color:var(--dsw-alias-label-secondary);padding:10px 12px;border:0;border-bottom:2px solid transparent}.gk-tabs button[aria-selected=true]{color:var(--dsw-alias-brand-primary);border-bottom-color:var(--dsw-alias-brand-primary);font-weight:600}\n.gk-stack{display:grid;gap:12px}.gk-card{border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);padding:16px;min-width:0}.gk-section-heading{padding-bottom:8px}.gk-section-heading p{font-size:12px;color:var(--dsw-alias-label-secondary)}\n.gk-field{display:grid;gap:5px;padding:12px 0;border-top:1px solid var(--dsw-alias-border-l1);min-width:0}.gk-field-title{font-weight:500}.gk-control{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}.gk-control input,.gk-control select,.gk-control textarea{max-width:100%}.gk-toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12px}.gk-toggle input{width:16px;height:16px;margin:0}\n.gk-page summary{cursor:pointer;list-style-position:inside;outline-offset:4px}.gk-page details>summary>.gk-muted{display:block;font-size:11px;margin-top:4px}.gk-record summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.gk-record time{margin-left:auto;font-size:11px}\n.gk-button:focus-visible,.gk-page input:focus-visible,.gk-page select:focus-visible,.gk-page textarea:focus-visible,.gk-tabs button:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.gk-button:not(:disabled):hover{filter:brightness(.97)}\n.gk-note{border-left:2px solid var(--dsw-alias-brand-primary);padding:8px 10px;background:var(--dsw-alias-bg-layer-2);font-size:12px;color:var(--dsw-alias-label-secondary)}\n.gk-empty{padding:32px 18px;border:1px dashed var(--dsw-alias-border-l2);border-radius:12px;text-align:center;color:var(--dsw-alias-label-secondary)}.gk-empty p{font-size:12px;margin-top:8px}.gk-error{display:flex;align-items:center;gap:10px;margin:10px 0;color:var(--dsw-alias-state-error-primary);font-size:12px;overflow-wrap:anywhere}.gk-original{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font:inherit;line-height:1.7;max-height:360px;overflow:auto;margin:10px 0}.gk-footer{font-size:10px;text-align:right;padding-top:14px}\n@media(max-width:540px){.gk-page-heading{gap:8px}.gk-page h2{font-size:20px}.gk-savebar{flex-wrap:wrap}.gk-savebar>.gk-actions{margin-left:auto}.gk-card{padding:12px}.gk-metrics{gap:5px}.gk-metrics>div{padding:9px}.gk-tabs button{padding:10px 8px}.gk-record time{margin-left:0}}\n"
 
-    const BUILD = 'v0.3.1'
+    const BUILD = 'v0.4.0'
 
     /** A starter word list for the phrasings the built-in rules do not cover. */
     const SEED_BLOCKLIST = [
@@ -597,8 +645,8 @@ window.__ModuleLoader__.load({
           },
         }, item.body || item.head || ''),
         h('div', { style: { display: 'flex', gap: 8 } },
-          h(Button, { onClick: () => decide('release'), disabled: busy, primary: true, title: t('releaseHint'), style: { height: 34, padding: '0 16px' } }, t('release')),
-          h(Button, { onClick: () => decide('block'), disabled: busy, title: t('discardHint'), style: { height: 34, padding: '0 16px' } }, t('block')),
+          h(Button, { onClick: () => decide('release'), disabled: busy, primary: true, title: t('releaseHint'), style: { height: 34, padding: '0 16px' } }, t(item.kind === 'disk' ? 'diskRun' : 'release')),
+          h(Button, { onClick: () => decide('block'), disabled: busy, title: t('discardHint'), style: { height: 34, padding: '0 16px' } }, t(item.kind === 'disk' ? 'diskDeny' : 'block')),
         ),
       )
     }
@@ -629,7 +677,7 @@ window.__ModuleLoader__.load({
           if (!Number.isSafeInteger(number) || number < minimum) return null
           body[field] = number
         }
-        for (const key of ['blocklist','wireUrlPatterns']) if (body[key] !== undefined) body[key] = list(body[key])
+        for (const key of ['blocklist','wireUrlPatterns','diskGuardTools','diskGuardAllowDirs','diskGuardDisabledRules']) if (body[key] !== undefined) body[key] = list(body[key])
         return body
       }
       const canonical = object => JSON.stringify(Object.keys(object).sort().map(key => [key, object[key]]))
@@ -659,6 +707,17 @@ window.__ModuleLoader__.load({
       const modeHint = { stream:'modeStreamHint',wire:'modeWireHint',both:'modeBothHint',preview:'modePreviewHint' }
       const toggle = (field,label,hint) => h(Row, { label:t(label), hint:hint && t(hint) },
         h(Toggle, { checked:current[field] === true, label:t(label), onChange:patch(field) }, t(current[field] ? 'statusEnabled' : 'statusDisabled')))
+      // A list field is edited as one-per-line text and only split on save, so a
+      // half-typed entry never becomes an array entry of its own.
+      const area = (field,rows=4) => h('textarea', {
+        rows, spellCheck:false,
+        value:Array.isArray(current[field]) ? current[field].join('\n') : String(current[field] ?? ''),
+        onChange:event=>patch(field)(event.target.value),
+        style:{ ...textStyle(), resize:'vertical', fontFamily:'monospace' },
+      })
+      const action = field => h('select', {
+        value:current[field] || 'off', onChange:event=>patch(field)(event.target.value), style:textStyle(),
+      }, ...['block','ask','warn','off'].map(key=>h('option',{key,value:key},t('diskAction'+key.charAt(0).toUpperCase()+key.slice(1)))))
       const number = (field,label,min=1) => h(Row, { label:t(label), hint: min + '+' },
         h('input',{ type:'number', min, step:1, value:String(current[field] ?? ''), onChange:event=>patch(field)(event.target.value), style:textStyle() }))
       const card = (title,hint,...children) => h('section',{className:'gk-card'},
@@ -669,7 +728,7 @@ window.__ModuleLoader__.load({
           h('div',{},h('h2',{},t('title')),h('p',{className:'gk-muted'},t('lead'))),
           h('span',{className:'gk-badge'},!current ? t('loading') : t(!current.enabled ? 'statusDisabled' : current.dryRun ? 'statusDry' : 'statusEnabled'))),
         h('div',{className:'gk-metrics'},...[
-          [t('checkedLabel'),counters.calls || 0],[t('pendingLabel'),pending.length],[t('blockedLabel'),recent.length],
+          [t('checkedLabel'),counters.calls || 0],[t('pendingLabel'),pending.length],[t('blockedLabel'),recent.length],[t('diskLabel'),counters.diskHits || 0],
         ].map(([label,value])=>h('div',{key:label},h('strong',{},value),h('span',{className:'gk-muted'},label)))),
         h('div',{className:'gk-savebar'},
           h('span',{className:'gk-muted',role:'status','aria-live':'polite'},status === 'saved' ? t('saved') : dirty ? t('dirty') : t('clean')),
@@ -698,6 +757,17 @@ window.__ModuleLoader__.load({
               current.onDetect==='ask' && number('askTimeoutMs','askTimeoutMs'),
               toggle('dryRun','dryRun','dryRunHint')),
             card('scopeTitle','scopeHint',toggle('scanReasoning','scanReasoning','scanReasoningHint'),toggle('scanToolArgs','scanTools','scanToolsHint')),
+            card('diskTitle','diskHint',
+              toggle('diskGuardEnabled','diskGuardEnabledLabel','diskGuardEnabledHint'),
+              current.diskGuardEnabled && h('div',{},
+                h(Row,{label:t('diskCritical'),hint:t('diskCriticalHint')},action('diskGuardCritical')),
+                h(Row,{label:t('diskRisky'),hint:t('diskRiskyHint')},action('diskGuardRisky')),
+                (current.diskGuardCritical==='ask' || current.diskGuardRisky==='ask') && h('p',{className:'gk-note'},t('diskAskHint')),
+                h(Row,{label:t('diskTools'),hint:t('diskToolsHint')},area('diskGuardTools',3)),
+                h(Row,{label:t('diskAllowDirs'),hint:t('diskAllowDirsHint')},area('diskGuardAllowDirs',7)),
+                h('details',{className:'gk-subdetails'},h('summary',{},t('diskRules')),
+                  h('p',{className:'gk-muted'},t('diskRulesHint')),area('diskGuardDisabledRules',3)),
+                h('p',{className:'gk-note'},t('diskNote')))),
             card('wordsTitle','wordsHint',
               h(Row,{label:fill(t('blocklistCount'),{count:list(current.blocklist).length})},h('textarea',{value:Array.isArray(current.blocklist)?current.blocklist.join('\n'):current.blocklist || '',
                 onChange:event=>patch('blocklist')(event.target.value),placeholder:t('blocklistPlaceholder'),spellCheck:false,rows:6,style:{...textStyle(),resize:'vertical',fontFamily:'monospace'}})),
@@ -721,8 +791,8 @@ window.__ModuleLoader__.load({
         h('section',{id:'gk-panel-history',role:'tabpanel','aria-labelledby':'gk-tab-history',hidden:tab!=='history',className:'gk-stack'},
           h('p',{className:'gk-muted gk-hint'},t('historyHint')),
           !recent.length ? h('div',{className:'gk-empty'},h('strong',{},t('recentEmpty')),h('p',{},t('historyEmptyHint'))) : recent.map((entry,index)=>h('details',{key:String(entry.at)+'-'+index,className:'gk-card gk-record'},
-            h('summary',{},h('span',{className:'gk-badge'},t(entry.dryRun?'outcomeDry':entry.released?'outcomeReleased':'outcomeBlocked')),h('span',{},entry.reason || ''),h('time',{className:'gk-muted'},clockOf(entry.at))),
-            h('p',{className:'gk-muted gk-hint'},String(entry.chars || 0)+' '+t('chars')),
+            h('summary',{},h('span',{className:'gk-badge'},t(entry.kind==='disk'?(entry.action==='warn'&&entry.released?'outcomeWarn':entry.released?'outcomeReleased':'outcomeBlocked'):(entry.dryRun?'outcomeDry':entry.released?'outcomeReleased':'outcomeBlocked'))),h('span',{},entry.reason || ''),h('time',{className:'gk-muted'},clockOf(entry.at))),
+            h('p',{className:'gk-muted gk-hint'},entry.kind==='disk' ? String(entry.tool || '')+' · '+String(entry.tier || '') : String(entry.chars || 0)+' '+t('chars')),
             h('pre',{className:'gk-original'},entry.head || t('noContent'))))),
         h('div',{className:'gk-footer gk-muted'},'dsh-gatekeeper · '+BUILD))
     }

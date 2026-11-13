@@ -192,7 +192,7 @@ test('integration review releases exact original chunks through the decision rou
   const ctx = {
     logger: { info() {}, warn() {} },
     get: key => key === 'connection' ? { fetch: { register: route => { routes.set(route.path, route); return () => {} } } } : undefined,
-    on: (_, fn) => { handler = fn; return () => {} }, effect: fn => fn(),
+    on: (event, fn) => { if (event === 'llm/stream') handler = fn; return () => {} }, effect: fn => fn(),
   }
   apply(ctx, { interceptAt: 'preview', onDetect: 'ask', blocklist: ['PRIVATE_MATCH'] })
   const original = [delta('PRIVATE_MATCH'), { ...finish, replayState: { response: { retained: true } } }]
@@ -263,7 +263,7 @@ test('preview timeout drops the raw reply through the real pending handler', asy
   const ctx = {
     logger: { info() {}, warn() {} },
     get: key => key === 'connection' ? { fetch: { register: route => { routes.set(route.path, route); return () => routes.delete(route.path) } } } : undefined,
-    on: (_, fn) => { handler = fn; return () => {} },
+    on: (event, fn) => { if (event === 'llm/stream') handler = fn; return () => {} },
     effect: fn => { const dispose = fn(); if (dispose) cleanup.push(dispose); return dispose },
   }
   apply(ctx, { interceptAt: 'preview', onDetect: 'ask', askTimeoutMs: 20, blocklist: ['PRIVATE_MATCH'] })
@@ -306,7 +306,7 @@ test('integration routes hold reply, isolate developer session, and cancel on un
   const ctx = {
     logger: { info() {}, warn() {} },
     get: key => key === 'connection' ? { fetch: { register: r => { routes.set(r.path, r); return () => routes.delete(r.path) } } } : undefined,
-    on: (_, fn) => { handler = fn; return () => {} },
+    on: (event, fn) => { if (event === 'llm/stream') handler = fn; return () => {} },
     effect: fn => { const dispose = fn(); if (dispose) disposers.push(dispose); return dispose },
   }
   apply(ctx, { interceptAt: 'preview', sessionsExclude: ['developer'], onDetect: 'ask', blocklist: ['PRIVATE_MATCH'] })
