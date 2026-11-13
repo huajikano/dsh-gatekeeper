@@ -41,6 +41,8 @@ window.__ModuleLoader__.load({
       statusEnabled: "已启用",
       statusDisabled: "已停用",
       statusDry: "演练中",
+      statusOffline: "插件未运行",
+      offlineHint: "读不到插件路由，说明这一行被停用或还没加载完成。这里的开关是插件自己的配置，和「管理插件」里那一行的启用/停用是两件事；想恢复拦截，先在那里重新启用。",
       checkedLabel: "已检查",
       pendingLabel: "当前待审",
       blockedLabel: "拦截记录",
@@ -200,6 +202,8 @@ window.__ModuleLoader__.load({
       statusEnabled: "Enabled",
       statusDisabled: "Disabled",
       statusDry: "Dry run",
+      statusOffline: "Plugin not running",
+      offlineHint: "The plugin routes did not answer, which means this row is disabled or still loading. The switches here are the plugin's own configuration; enabling or disabling the row happens in the plugin manager. Re-enable it there to restore interception.",
       checkedLabel: "Inspected",
       pendingLabel: "Awaiting review",
       blockedLabel: "Match records",
@@ -726,7 +730,11 @@ window.__ModuleLoader__.load({
         h('style',{},UI_CSS),
         h('div',{className:'gk-page-heading'},
           h('div',{},h('h2',{},t('title')),h('p',{className:'gk-muted'},t('lead'))),
-          h('span',{className:'gk-badge'},!current ? t('loading') : t(!current.enabled ? 'statusDisabled' : current.dryRun ? 'statusDry' : 'statusEnabled'))),
+        // A failed state fetch means this plugin is not running — its row is
+        // disabled or still loading. Reporting the last snapshot as "enabled"
+        // would contradict the plugin manager, which is exactly what a reader
+        // of this badge is trying to cross-check.
+        h('span',{className:'gk-badge'},!current ? t('loading') : error ? t('statusOffline') : t(!current.enabled ? 'statusDisabled' : current.dryRun ? 'statusDry' : 'statusEnabled'))),
         h('div',{className:'gk-metrics'},...[
           [t('checkedLabel'),counters.calls || 0],[t('pendingLabel'),pending.length],[t('blockedLabel'),recent.length],[t('diskLabel'),counters.diskHits || 0],
         ].map(([label,value])=>h('div',{key:label},h('strong',{},value),h('span',{className:'gk-muted'},label)))),
@@ -734,9 +742,10 @@ window.__ModuleLoader__.load({
           h('span',{className:'gk-muted',role:'status','aria-live':'polite'},status === 'saved' ? t('saved') : dirty ? t('dirty') : t('clean')),
           h('div',{className:'gk-actions'},
             h(Button,{disabled:!dirty || status==='saving',onClick:()=>{setDraft(null);setStatus('')}},t('undo')),
-            h(Button,{primary:true,disabled:!current || !dirty || status==='saving',onClick:save},t(status==='saving'?'saving':'save')))),
+            h(Button,{primary:true,disabled:!current || !dirty || status==='saving' || Boolean(error),onClick:save},t(status==='saving'?'saving':'save')))),
         status.startsWith('failed:') && h('div',{className:'gk-error',role:'alert'},t('saveFailed')+': '+status.slice(7)),
         error && h('div',{className:'gk-error',role:'alert'},t('error')+': '+error,h(Button,{onClick:refresh},t('reload'))),
+        error && h('p',{className:'gk-note'},t('offlineHint')),
         h('div',{className:'gk-tabs',role:'tablist','aria-label':t('title')},...[
           ['settings',t('tabSettings')],['review',t('tabReview')+' ('+pending.length+')'],['history',t('tabHistory')],
         ].map(([key,label])=>h('button',{key,id:'gk-tab-'+key,type:'button',role:'tab','aria-selected':tab===key,'aria-controls':'gk-panel-'+key,

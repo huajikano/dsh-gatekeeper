@@ -17,10 +17,10 @@ import vm from 'node:vm'
 function client() {
   let plugin
   const registrations = []
-  let initialState = null
+  let queue = []
   const React = {
     createElement(type, props, ...children) { return { type, props: props || {}, children } },
-    useState(value) { const out = initialState; initialState = null; return [out ?? value, () => {}] },
+    useState(value) { const out = queue.shift(); return [out ?? value, () => {}] },
     useEffect() {},
     useCallback(fn) { return fn },
   }
@@ -47,8 +47,12 @@ function client() {
   const page = registrations.find((entry) => entry.options.name === 'settings.section')
   return {
     page,
-    render(state) {
-      initialState = state
+    /**
+     * Render the page against a prepared hook queue: the state snapshot, then
+     * the fetch error, exactly as `useGuardState` would hold them.
+     */
+    render(state, error) {
+      queue = [state, error]
       return page.view({ t: (key) => key, close() {} })
     },
   }
@@ -188,6 +192,20 @@ test('every label the Client asks for is in the dictionary', () => {
   ]) {
     assert.ok(zh.has(key), `missing dictionary entry ${key}`)
   }
+})
+
+test('a plugin row that is disabled reports itself as not running', () => {
+  // The plugin manager disables the loader row, not `config.enabled`. The card
+  // must not keep claiming "enabled" from a stale snapshot after its routes go
+  // away — that is what made the manager and this page disagree.
+  const c = client()
+  const tree = c.render(stateOf({ diskGuardEnabled: true }), 'HTTP 404')
+  const rendered = texts(tree)
+  assert.ok(rendered.includes('offlineHint'), 'and it must explain where the row switch lives')
+  const badge = nodes(tree).find((node) => node.props && node.props.className === 'gk-badge')
+  assert.equal(badge.children[0], 'statusOffline', 'the badge must not keep the stale verdict')
+  const save = nodes(tree).find((node) => node.props && node.props.primary === true)
+  assert.equal(save.props.disabled, true, 'saving is impossible while the routes are gone')
 })
 
 test('a held tool call offers run and deny, not release and discard', () => {
